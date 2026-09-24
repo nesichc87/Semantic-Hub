@@ -175,6 +175,10 @@ VEC is also planned as a semantic source.
 
 The implementation will be integrated through the common semantic source interface.
 
+## ECLASS
+
+ Only free available assets XML
+
 ---
 
 ## Source Abstraction

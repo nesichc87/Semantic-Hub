@@ -16,27 +16,58 @@ class KBLService:
         self.parser = parser
 
     def get_type(
-        self,
-        type_name: str,
+            self,
+            type_name: str,
     ) -> dict:
         """
-        Resolve a KBL complex type and return its elements.
+        Resolve a KBL type and return its semantic information.
         """
 
         content = self.client.get_xsd()
         root = self.parser.parse(content)
 
-        elements = self.parser.list_inherited_elements(
+        type_kind = self.parser.resolve_type(
             root,
             type_name,
         )
 
-        if not elements:
+        if type_kind == "unknown":
             raise ValueError(
                 f"KBL type '{type_name}' not found"
             )
 
-        return {
-            "type": type_name,
-            "elements": elements,
-        }
+        if type_kind == "builtin":
+            return {
+                "type": type_name,
+                "kind": "builtin",
+            }
+
+        if type_kind == "simple":
+            simple_type = self.parser.get_simple_type(
+                root,
+                type_name,
+            )
+
+            return {
+                "type": type_name,
+                "kind": "simple",
+                "base_type": self.parser.get_simple_type_base(
+                    simple_type
+                ),
+            }
+
+        if type_kind == "complex":
+            elements = self.parser.list_inherited_elements(
+                root,
+                type_name,
+            )
+
+            return {
+                "type": type_name,
+                "kind": "complex",
+                "elements": elements,
+            }
+
+        raise ValueError(
+            f"Unsupported KBL type '{type_name}'"
+        )

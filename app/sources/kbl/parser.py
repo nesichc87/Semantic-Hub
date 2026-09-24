@@ -219,3 +219,55 @@ class KBLParser:
             return None
 
         return extension.get("base")
+
+    def get_simple_type(
+        self,
+        root: ET.Element,
+        type_name: str,
+    ) -> ET.Element | None:
+        local_name = type_name.split(":", 1)[-1]
+
+        for simple_type in root.findall("xs:simpleType", XS):
+            if simple_type.get("name") == local_name:
+                return simple_type
+
+        return None
+
+    def get_simple_type_base(
+        self,
+        simple_type: ET.Element,
+    ) -> str | None:
+        restriction = simple_type.find("xs:restriction", XS)
+
+        if restriction is None:
+            return None
+
+        return restriction.get("base")
+
+    def resolve_type(
+            self,
+            root: ET.Element,
+            type_name: str,
+    ) -> str:
+        """
+        Determine the kind of an XSD type.
+
+        Returns:
+        - "builtin" for XML Schema built-in types
+        - "complex" for named XSD complexTypes
+        - "simple" for named XSD simpleTypes
+        - "unknown" if the type cannot be found
+        """
+
+        local_name = type_name.split(":", 1)[-1]
+
+        if type_name.startswith("xs:"):
+            return "builtin"
+
+        if self.get_complex_type(root, local_name) is not None:
+            return "complex"
+
+        if self.get_simple_type(root, local_name) is not None:
+            return "simple"
+
+        return "unknown"
