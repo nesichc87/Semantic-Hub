@@ -12,3 +12,9 @@ class SemanticSource(ABC):
     def resolve(self, semantic_id: str):
         """Resolve a semantic ID using this source."""
         pass
+    @abstractmethod
+    def suggest(self, query: str) -> list[str]:
+        """
+        Return semantic identifiers matching the search query.
+        """
+        pass

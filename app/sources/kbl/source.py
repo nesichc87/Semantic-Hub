@@ -40,3 +40,9 @@ class KBLSemanticSource(SemanticSource):
                 "source_reference": semantic_id,
             },
         )
+
+    def suggest(self, query: str) -> list[str]:
+        """
+        Suggest KBL semantic identifiers matching the query.
+        """
+        return self.service.suggest_types(query)

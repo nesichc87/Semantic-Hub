@@ -5,7 +5,14 @@ from app.api.routes import semantic
 
 app = FastAPI(
     title="Semantic Hub",
-    description="REST API for resolving and retrieving semantic information.",
+    description="""
+The Semantic Hub provides a unified retrieval interface for
+heterogeneous semantic sources used in Industry 4.0.
+
+It resolves semantic identifiers, suggests matching semantic
+concepts and provides different representations of semantic
+information while preserving source provenance.
+""",
     version="0.1.0",
 )
 

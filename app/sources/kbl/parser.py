@@ -271,3 +271,36 @@ class KBLParser:
             return "simple"
 
         return "unknown"
+
+    def suggest_types(
+        self,
+        root: ET.Element,
+        query: str,
+    ) -> list[str]:
+        """
+        Return KBL type identifiers whose names contain the query.
+
+        Matching is case-insensitive. Only named XSD simpleTypes
+        and complexTypes are considered.
+        """
+
+        normalized_query = query.strip().lower()
+
+        if not normalized_query:
+            return []
+
+        matches = []
+
+        for complex_type in root.findall("xs:complexType", XS):
+            name = complex_type.get("name")
+
+            if name and normalized_query in name.lower():
+                matches.append(f"kbl:{name}")
+
+        for simple_type in root.findall("xs:simpleType", XS):
+            name = simple_type.get("name")
+
+            if name and normalized_query in name.lower():
+                matches.append(f"kbl:{name}")
+
+        return sorted(matches)

@@ -16,8 +16,8 @@ class KBLService:
         self.parser = parser
 
     def get_type(
-            self,
-            type_name: str,
+        self,
+        type_name: str,
     ) -> dict:
         """
         Resolve a KBL type and return its semantic information.
@@ -70,4 +70,20 @@ class KBLService:
 
         raise ValueError(
             f"Unsupported KBL type '{type_name}'"
+        )
+
+    def suggest_types(self, query: str) -> list[str]:
+        """
+        Suggest KBL type identifiers matching the query.
+
+        Matching is case-insensitive. Resolution itself remains
+        case-sensitive and exact.
+        """
+
+        content = self.client.get_xsd()
+        root = self.parser.parse(content)
+
+        return self.parser.suggest_types(
+            root,
+            query,
         )
