@@ -10,6 +10,7 @@ from app.sources.kbl.client import KBLClient
 from app.sources.kbl.parser import KBLParser
 from app.sources.kbl.service import KBLService
 from app.sources.kbl.source import KBLSemanticSource
+from app.formatter.iec61360 import IEC61360Formatter
 
 
 router = APIRouter()
@@ -53,6 +54,7 @@ resolver = SemanticResolver(registry)
 # ---------------------------------------------------------------------------
 
 original_formatter = OriginalFormatter()
+iec61360_formatter = IEC61360Formatter()
 
 
 # ---------------------------------------------------------------------------
@@ -70,11 +72,11 @@ original_formatter = OriginalFormatter()
 )
 def resolve(
     semantic_id: str,
-    format: Literal["original"] = Query(
+    format: Literal["original", "iec61360"] = Query(
         default="original",
         description=(
-            "Output format used to represent the resolved semantic "
-            "information. Currently only 'original' is supported."
+                "Output format used to represent the resolved semantic "
+                "information. Supported formats: 'original', 'iec61360'."
         ),
     ),
 ):
@@ -91,6 +93,8 @@ def resolve(
 
         if format == "original":
             result = original_formatter.format(concept)
+        elif format == "iec61360":
+            result = iec61360_formatter.format(concept)
         else:
             raise HTTPException(
                 status_code=400,
