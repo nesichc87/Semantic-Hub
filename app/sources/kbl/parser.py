@@ -244,6 +244,49 @@ class KBLParser:
 
         return restriction.get("base")
 
+    def resolve_simple_type_base(
+        self,
+        root: ET.Element,
+        type_name: str,
+    ) -> str | None:
+        """
+        Resolve a named simpleType to its underlying XSD base type.
+
+        Returns the built-in base type if the chain can be resolved.
+        Returns None for unknown or non-simple types.
+        """
+
+        current_type = type_name
+        visited = set()
+
+        while current_type:
+            local_name = current_type.split(":", 1)[-1]
+
+            if local_name in visited:
+                raise ValueError(
+                    f"Circular XSD simpleType restriction detected "
+                    f"at '{local_name}'"
+                )
+
+            visited.add(local_name)
+
+            if current_type.startswith("xs:"):
+                return current_type
+
+            simple_type = self.get_simple_type(
+                root,
+                current_type,
+            )
+
+            if simple_type is None:
+                return None
+
+            current_type = self.get_simple_type_base(
+                simple_type
+            )
+
+        return None
+
     def resolve_type(
             self,
             root: ET.Element,

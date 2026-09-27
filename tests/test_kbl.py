@@ -4,6 +4,9 @@ from app.sources.kbl.client import KBLClient
 from app.sources.kbl.parser import KBLParser, XS_NAMESPACE
 from app.sources.kbl.service import KBLService
 from fastapi.testclient import TestClient
+import xml.etree.ElementTree as ET
+
+import pytest
 
 from app.main import app
 
@@ -313,3 +316,69 @@ def test_api_resolves_kbl_component():
 
     assert "Part_number" in property_names
     assert "Description" in property_names
+
+def test_resolve_simple_type_base_returns_builtin_type():
+    parser = KBLParser()
+    root = ET.fromstring("""
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+            <xs:simpleType name="MyString">
+                <xs:restriction base="xs:string"/>
+            </xs:simpleType>
+        </xs:schema>
+    """)
+
+    assert parser.resolve_simple_type_base(
+        root,
+        "kbl:MyString",
+    ) == "xs:string"
+
+
+def test_resolve_simple_type_base_resolves_restriction_chain():
+    parser = KBLParser()
+    root = ET.fromstring("""
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+            <xs:simpleType name="BaseString">
+                <xs:restriction base="xs:string"/>
+            </xs:simpleType>
+            <xs:simpleType name="DerivedString">
+                <xs:restriction base="kbl:BaseString"/>
+            </xs:simpleType>
+        </xs:schema>
+    """)
+
+    assert parser.resolve_simple_type_base(
+        root,
+        "kbl:DerivedString",
+    ) == "xs:string"
+
+
+def test_resolve_simple_type_base_returns_none_for_unknown_type():
+    parser = KBLParser()
+    root = ET.fromstring("""
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>
+    """)
+
+    assert parser.resolve_simple_type_base(
+        root,
+        "kbl:UnknownType",
+    ) is None
+
+
+def test_resolve_simple_type_base_detects_circular_restriction():
+    parser = KBLParser()
+    root = ET.fromstring("""
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+            <xs:simpleType name="TypeA">
+                <xs:restriction base="kbl:TypeB"/>
+            </xs:simpleType>
+            <xs:simpleType name="TypeB">
+                <xs:restriction base="kbl:TypeA"/>
+            </xs:simpleType>
+        </xs:schema>
+    """)
+
+    with pytest.raises(ValueError, match="Circular XSD simpleType"):
+        parser.resolve_simple_type_base(
+            root,
+            "kbl:TypeA",
+        )
