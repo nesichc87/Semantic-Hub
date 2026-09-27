@@ -244,6 +244,28 @@ class KBLParser:
 
         return restriction.get("base")
 
+    def get_simple_type_definition(
+        self,
+        root: ET.Element,
+        type_name: str,
+    ) -> str | None:
+        """
+        Return the XML definition of a named simpleType.
+        """
+
+        simple_type = self.get_simple_type(
+            root,
+            type_name,
+        )
+
+        if simple_type is None:
+            return None
+
+        return ET.tostring(
+            simple_type,
+            encoding="unicode",
+        )
+
     def resolve_simple_type_base(
         self,
         root: ET.Element,

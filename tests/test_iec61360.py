@@ -66,3 +66,27 @@ def test_format_concept_without_optional_fields():
     assert result.definition is None
     assert result.source_of_definition is None
     assert result.properties == []
+
+def test_format_property_with_unsupported_data_type_returns_none():
+    concept = SemanticConcept(
+        semantic_id="kbl:Component",
+        source="kbl",
+        name="Component",
+        properties=[
+            SemanticProperty(
+                semantic_id="kbl:Component:Mass_information",
+                name="Mass_information",
+                data_type="kbl:Numerical_value",
+            )
+        ],
+    )
+
+    formatter = IEC61360Formatter()
+
+    result = formatter.format(concept)
+
+    assert len(result.properties) == 1
+    assert result.properties[0].semantic_id == (
+        "kbl:Component:Mass_information"
+    )
+    assert result.properties[0].data_type is None
