@@ -14,6 +14,22 @@ class KBLService:
     ):
         self.client = client
         self.parser = parser
+        self._root = None
+
+    def _get_root(self):
+        """
+        Return the parsed KBL XSD.
+
+        The XSD is loaded and parsed on first use and then kept in
+        memory. The KBL XSD is a fixed release, so no invalidation
+        is required.
+        """
+
+        if self._root is None:
+            content = self.client.get_xsd()
+            self._root = self.parser.parse(content)
+
+        return self._root
 
     def get_type(
         self,
@@ -23,8 +39,7 @@ class KBLService:
         Resolve a KBL type and return its semantic information.
         """
 
-        content = self.client.get_xsd()
-        root = self.parser.parse(content)
+        root = self._get_root()
 
         type_kind = self.parser.resolve_type(
             root,
@@ -80,8 +95,7 @@ class KBLService:
         case-sensitive and exact.
         """
 
-        content = self.client.get_xsd()
-        root = self.parser.parse(content)
+        root = self._get_root()
 
         return self.parser.suggest_types(
             root,

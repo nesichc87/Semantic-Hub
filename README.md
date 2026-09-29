@@ -42,7 +42,7 @@ The project is being built up incrementally. KBL is the first real semantic sour
 - VEC integration
 - ECLASS (under evaluation): based on the ECLASS 16.0 Asset; integration approach and licensing conditions are still to be clarified
 - Review and extension of the IEC 61360-oriented output
-- More efficient XSD loading (e.g. caching)
+- Persistent caching of source data (approach to be decided, e.g. file-based or database-backed)
 - AAS-compatible semantic information
 - Graphical user interface
 - Docker-based deployment
@@ -215,7 +215,7 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 - Numeric XSD types are not mapped to an IEC 61360 data type, because the semantic context is missing.
 - `definition` is `null` for KBL. The KBL XSD v2.5 SR-1 contains no descriptive documentation: its `xs:documentation` entries are exclusively reference hints on `IDREF`/`IDREFS` elements (e.g. "ref to External_reference"). These are not definitions and are currently not evaluated.
 - `unit` is `null` for KBL. The KBL schema does not define concrete units: types derived from `Value_with_unit` (e.g. `Numerical_value`) reference a `Unit` object via `xs:IDREF`, so the unit is only determined in a KBL instance document. Since the Semantic Hub evaluates the schema, not instance documents, no unit can be derived.
-- The XSD is loaded remotely and currently reloaded on each request; caching is planned.
+- The XSD is loaded remotely on first use and then kept in memory for the lifetime of the process. There is no persistent cache yet, so the first request after a restart requires network access.
 - This is not a complete KBL implementation.
 
 ### Mock (development and testing)
