@@ -176,7 +176,7 @@ Semantic-Hub/
 │   │       ├── parser.py           # XSD parsing
 │   │       ├── service.py          # high-level resolution of KBL types and their elements
 │   │       ├── mapper.py           # placeholder (currently empty)
-│   │       └── source.py           # KBL semantic source
+│   │       └── source.py           # KBL semantic source, maps resolved types to the internal model
 │   │
 │   └── main.py                     # FastAPI application
 │
@@ -247,7 +247,7 @@ class SemanticSource(ABC):
         ...
 
     @abstractmethod
-    def resolve(self, semantic_id: str):
+    def resolve(self, semantic_id: str) -> SemanticConcept:
         ...
 
     @abstractmethod
@@ -256,7 +256,7 @@ class SemanticSource(ABC):
 ```
 
 - `can_resolve()` is used by the Registry to determine which source is responsible for a semantic identifier.
-- `resolve()` returns the semantic information for an identifier. Real sources such as KBL return a concept of the internal semantic model.
+- `resolve()` returns a concept of the internal semantic model (`SemanticConcept`) for an identifier.
 - `suggest()` returns semantic identifiers matching a search query.
 
 This avoids coupling the REST API directly to individual semantic dictionaries.
