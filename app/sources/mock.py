@@ -1,3 +1,4 @@
+from app.models.semantic import SemanticConcept
 from app.sources.base import SemanticSource
 
 
@@ -6,12 +7,12 @@ class MockSemanticSource(SemanticSource):
     def can_resolve(self, semantic_id: str) -> bool:
         return semantic_id.startswith("mock:")
 
-    def resolve(self, semantic_id: str):
-        return {
-            "semantic_id": semantic_id,
-            "source": "mock",
-            "name": "Example semantic concept",
-        }
+    def resolve(self, semantic_id: str) -> SemanticConcept:
+        return SemanticConcept(
+            semantic_id=semantic_id,
+            source="mock",
+            name="Example semantic concept",
+        )
 
     def suggest(self, query: str) -> list[str]:
         """
