@@ -219,7 +219,7 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 
 ### Mock (development and testing)
 
-A mock source (`mock:` prefix) is used for development and testing. It does not yet return the internal semantic model.
+A mock source (`mock:` prefix) is used for development and testing. It returns a minimal concept of the internal semantic model.
 
 ### QUDT (planned)
 
