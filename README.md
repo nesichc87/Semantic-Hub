@@ -214,7 +214,7 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 - Types that cannot be resolved are not guessed. They are kept as a type reference (`original`) or returned with `data_type: null` (`iec61360`).
 - Numeric XSD types are not mapped to an IEC 61360 data type, because the semantic context is missing.
 - `definition` is `null` for KBL. The KBL XSD v2.5 SR-1 contains no descriptive documentation: its `xs:documentation` entries are exclusively reference hints on `IDREF`/`IDREFS` elements (e.g. "ref to External_reference"). These are not definitions and are currently not evaluated.
-- `unit` is currently `null` in the output. This does not necessarily mean that the KBL source contains no unit information, only that it is not yet evaluated.
+- `unit` is `null` for KBL. The KBL schema does not define concrete units: types derived from `Value_with_unit` (e.g. `Numerical_value`) reference a `Unit` object via `xs:IDREF`, so the unit is only determined in a KBL instance document. Since the Semantic Hub evaluates the schema, not instance documents, no unit can be derived.
 - The XSD is loaded remotely and currently reloaded on each request; caching is planned.
 - This is not a complete KBL implementation.
 
