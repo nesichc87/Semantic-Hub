@@ -11,6 +11,9 @@ from app.sources.kbl.parser import KBLParser
 from app.sources.kbl.service import KBLService
 from app.sources.kbl.source import KBLSemanticSource
 from app.formatter.iec61360 import IEC61360Formatter
+from app.sources.vec.client import VECClient
+from app.sources.vec.service import VECService
+from app.sources.vec.source import VECSemanticSource
 
 
 router = APIRouter()
@@ -36,6 +39,18 @@ kbl_service = KBLService(
 
 kbl_source = KBLSemanticSource(kbl_service)
 
+# ---------------------------------------------------------------------------
+# VEC source configuration
+# ---------------------------------------------------------------------------
+
+VEC_TTL_URL = (
+    "https://ecad-wiki.prostep.org/"
+    "specifications/vec/v220/vec-2.2.0-ontology.ttl"
+)
+
+vec_client = VECClient(VEC_TTL_URL)
+vec_service = VECService(client=vec_client)
+vec_source = VECSemanticSource(vec_service)
 
 # ---------------------------------------------------------------------------
 # Semantic registry and resolver
@@ -45,6 +60,7 @@ registry = SemanticRegistry()
 
 registry.register(MockSemanticSource())
 registry.register(kbl_source)
+registry.register(vec_source)
 
 resolver = SemanticResolver(registry)
 
