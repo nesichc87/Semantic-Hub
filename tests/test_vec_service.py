@@ -25,8 +25,11 @@ vec:partVersionAliasId a owl:ObjectProperty ;
 
 
 class FakeClient:
+    def __init__(self, ttl: bytes = TTL):
+        self.ttl = ttl
+
     def get_ttl(self) -> bytes:
-        return TTL
+        return self.ttl
 
 
 def test_get_class_returns_direct_properties():
@@ -57,3 +60,45 @@ def test_get_class_raises_for_unknown_class():
 
     with pytest.raises(ValueError):
         service.get_class("vec:DoesNotExist")
+
+TTL_WITH_INHERITANCE = b"""
+@prefix vec: <http://www.prostep.org/ontologies/ecad/2024/03/vec#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+vec:ExtendableElement a owl:Class .
+
+vec:extendableElementCustomProperty a owl:ObjectProperty ;
+    rdfs:domain vec:ExtendableElement ;
+    rdfs:range vec:CustomProperty .
+
+vec:ItemVersion a owl:Class ;
+    rdfs:subClassOf vec:ExtendableElement .
+
+vec:itemVersionCompanyName a owl:DatatypeProperty ;
+    rdfs:domain vec:ItemVersion ;
+    rdfs:range xsd:string .
+
+vec:PartVersion a owl:Class ;
+    rdfs:subClassOf vec:ItemVersion ,
+        [ a owl:Restriction ;
+          owl:onProperty vec:partVersionPartNumber ;
+          owl:maxCardinality 1 ] .
+
+vec:partVersionPartNumber a owl:DatatypeProperty ;
+    rdfs:domain vec:PartVersion ;
+    rdfs:range xsd:string .
+"""
+
+
+def test_get_class_includes_inherited_properties_base_first():
+    service = VECService(client=FakeClient(TTL_WITH_INHERITANCE))
+
+    result = service.get_class("vec:PartVersion")
+
+    assert [p["semantic_id"] for p in result["properties"]] == [
+        "vec:extendableElementCustomProperty",
+        "vec:itemVersionCompanyName",
+        "vec:partVersionPartNumber",
+    ]

@@ -36,7 +36,9 @@ class VECService:
 
     def get_class(self, semantic_id: str) -> dict:
         """
-        Resolve a VEC class and return its direct properties.
+        Resolve a VEC class and return its direct and inherited
+        properties. Inherited properties come first, starting with the
+        most general base class.
         """
 
         graph = self._get_graph()
@@ -46,17 +48,57 @@ class VECService:
         if (cls, RDF.type, OWL.Class) not in graph:
             raise ValueError(f"VEC class '{semantic_id}' not found")
 
-        properties = [
-            self._describe_property(graph, prop)
-            for prop in graph.subjects(RDFS.domain, cls)
-        ]
-        properties.sort(key=lambda p: p["semantic_id"])
+        properties = []
+        seen = set()
+
+        for current in self._class_hierarchy(graph, cls):
+            for prop in sorted(graph.subjects(RDFS.domain, current), key=str):
+                if prop in seen:
+                    continue
+
+                seen.add(prop)
+                properties.append(self._describe_property(graph, prop))
 
         return {
             "name": name,
             "description": self._comment(graph, cls),
             "properties": properties,
         }
+
+    @staticmethod
+    def _class_hierarchy(graph: Graph, cls: URIRef) -> list[URIRef]:
+        """
+        Return the class and all of its superclasses, base classes first.
+
+        Only named classes are followed. Blank nodes such as
+        owl:Restriction are ignored.
+        """
+
+        ordered = []
+        visited = set()
+
+        def visit(current: URIRef) -> None:
+            if current in visited:
+                return
+
+            visited.add(current)
+
+            superclasses = sorted(
+                (
+                    s for s in graph.objects(current, RDFS.subClassOf)
+                    if isinstance(s, URIRef)
+                ),
+                key=str,
+            )
+
+            for superclass in superclasses:
+                visit(superclass)
+
+            ordered.append(current)
+
+        visit(cls)
+
+        return ordered
 
     def _describe_property(self, graph: Graph, prop: URIRef) -> dict:
         ranges = sorted(str(r) for r in graph.objects(prop, RDFS.range))
