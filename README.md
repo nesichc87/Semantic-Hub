@@ -213,7 +213,8 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 - Only the XSD constructs listed above are supported. The goal is not to support every possible XSD structure.
 - Types that cannot be resolved are not guessed. They are kept as a type reference (`original`) or returned with `data_type: null` (`iec61360`).
 - Numeric XSD types are not mapped to an IEC 61360 data type, because the semantic context is missing.
-- `definition` and `unit` are currently `null` in the output. This does not necessarily mean that the KBL source contains no such information, only that it is not yet evaluated.
+- `definition` is `null` for KBL. The KBL XSD v2.5 SR-1 contains no descriptive documentation: its `xs:documentation` entries are exclusively reference hints on `IDREF`/`IDREFS` elements (e.g. "ref to External_reference"). These are not definitions and are currently not evaluated.
+- `unit` is currently `null` in the output. This does not necessarily mean that the KBL source contains no unit information, only that it is not yet evaluated.
 - The XSD is loaded remotely and currently reloaded on each request; caching is planned.
 - This is not a complete KBL implementation.
 
