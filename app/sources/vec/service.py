@@ -65,6 +65,29 @@ class VECService:
             "properties": properties,
         }
 
+    def suggest_classes(self, query: str) -> list[str]:
+        """
+        Suggest VEC class identifiers matching the query.
+
+        Matching is case-insensitive. Resolution itself remains
+        case-sensitive and exact.
+        """
+
+        search = query.strip().lower()
+
+        if not search:
+            return []
+
+        graph = self._get_graph()
+
+        return sorted(
+            self._compact(str(cls))
+            for cls in graph.subjects(RDF.type, OWL.Class)
+            if isinstance(cls, URIRef)
+            and str(cls).startswith(VEC_NAMESPACE)
+            and search in str(cls)[len(VEC_NAMESPACE):].lower()
+        )
+
     @staticmethod
     def _class_hierarchy(graph: Graph, cls: URIRef) -> list[URIRef]:
         """

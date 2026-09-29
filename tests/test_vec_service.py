@@ -102,3 +102,20 @@ def test_get_class_includes_inherited_properties_base_first():
         "vec:itemVersionCompanyName",
         "vec:partVersionPartNumber",
     ]
+
+def test_suggest_classes_matches_case_insensitive_substring():
+    service = VECService(client=FakeClient(TTL_WITH_INHERITANCE))
+
+    assert service.suggest_classes("version") == [
+        "vec:ItemVersion",
+        "vec:PartVersion",
+    ]
+    assert service.suggest_classes("PART") == ["vec:PartVersion"]
+    assert service.suggest_classes("  part  ") == ["vec:PartVersion"]
+
+
+def test_suggest_classes_returns_empty_list_without_match():
+    service = VECService(client=FakeClient(TTL_WITH_INHERITANCE))
+
+    assert service.suggest_classes("Wire") == []
+    assert service.suggest_classes("   ") == []
