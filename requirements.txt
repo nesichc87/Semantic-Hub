@@ -1,0 +1,8 @@
+# Runtime
+fastapi==0.141.1
+uvicorn==0.54.0
+rdflib==7.6.0
+
+# Testing
+pytest==9.1.1
+httpx2==2.13.1
