@@ -13,29 +13,36 @@ The implementation is developed based on the architecture and concepts described
 
 ## Project Status
 
-🚧 **Early development / Work in progress**
+🚧 Early development / Work in progress
 
-The project is currently in the initial architecture and API implementation phase.
+The project is being built up incrementally. KBL is the first real semantic source and is integrated with a limited scope.
 
-Currently implemented:
+### Currently implemented
 
-- FastAPI-based REST API
-- API routing
-- Semantic resolver
-- Semantic source registry
+- FastAPI-based REST API with OpenAPI / Swagger documentation
+- Semantic resolver and semantic source registry
 - Pluggable semantic source interface
-- Initial mock semantic source
-- OpenAPI / Swagger documentation
+- Mock semantic source (development and testing only)
+- **KBL source (limited scope)**, based on the KBL XSD v2.5 SR-1:
+  - resolution of named simple and complex XSD types
+  - complex type inheritance, including inherited elements
+  - resolution of simple type restrictions down to the built-in XSD type
+  - exact, case-sensitive type resolution
+  - case-insensitive search of named types for suggestions
+- Internal semantic model (concepts, properties, source provenance)
+- Output formats:
+  - `original` – source-oriented, normalized representation of the internal model (not an unchanged KBL serialization)
+  - `iec61360` – minimal IEC 61360-oriented representation with partial data type mapping (not a complete or conformant IEC 61360 implementation)
+- Suggestion endpoint for semantic identifiers
+- Automated tests (pytest) for the semantic model, KBL type resolution, data type mapping and formatters
 
-Planned functionality includes:
+### Planned
 
-- KBL integration
 - QUDT integration
 - VEC integration
-- Semantic source resolution
-- Registry and source management
-- Semantic data formatting
-- IEC 61360 representation
+- ECLASS (under evaluation): based on the ECLASS 16.0 Asset; integration approach and licensing conditions are still to be clarified
+- Review and extension of the IEC 61360-oriented output
+- More efficient XSD loading (e.g. caching)
 - AAS-compatible semantic information
 - Graphical user interface
 - Docker-based deployment
@@ -44,27 +51,42 @@ Planned functionality includes:
 
 ## Architecture
 
-The project follows a layered architecture intended to separate the REST API from semantic resolution and individual semantic sources.
+The project follows a layered architecture that separates the REST API from semantic resolution, the individual semantic sources and the output formatting.
 
-```text
-                    REST API
-                       │
-                       ▼
-                 API Routes
-                       │
-                       ▼
+```
+                 REST API (FastAPI)
+                        │
+                        ▼
+                   API Routes
+                        │
+                        ▼
                 Semantic Resolver
-                       │
-                       ▼
+                        │
+                        ▼
                 Semantic Registry
-                       │
-          ┌────────────┼────────────┐
-          │            │            │
-          ▼            ▼            ▼
-         KBL          QUDT         VEC
-       Source        Source       Source
-````
-The individual semantic sources are intended to be implemented behind a common interface.
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+       KBL             QUDT            VEC
+   (limited)        (planned)       (planned)
+        │
+        ▼
+ Internal Semantic Model
+ (concepts, properties, provenance)
+        │
+        ▼
+    Formatter
+ (original / iec61360)
+        │
+        ▼
+   API response
+```
+
+Semantic sources are implemented behind a common interface and map their source information into the internal semantic model. Source provenance is kept in the model.
+
+The formatters operate on the internal semantic model rather than on source-specific data. This is intended to allow additional sources to reuse the existing output formats. Whether the internal model is sufficiently source-independent will be verified when a second source is integrated.
+
+A mock source is additionally available for development and testing.
 
 This allows the Semantic Hub to support additional semantic sources without requiring a separate REST service for every source.
 
@@ -72,81 +94,97 @@ This allows the Semantic Hub to support additional semantic sources without requ
 
 ## Current API Flow
 
-The current prototype already implements the following flow:
-```text
+```
 HTTP Request
      │
      ▼
-FastAPI
-     │
-     ▼
-API Route
+FastAPI / API Route
      │
      ▼
 Semantic Resolver
      │
      ▼
-Semantic Registry
+Semantic Registry  →  responsible semantic source
      │
      ▼
-Semantic Source
+Internal Semantic Model
      │
      ▼
-Response
-````
-For the initial implementation, a mock semantic source is used to verify the architecture.
+Formatter (original / iec61360)
+     │
+     ▼
+JSON Response
+```
 
-Example:
-```text
-GET /api/resolve/mock:123
-````
-Response:
-```text
+Example requests:
+
+```
+GET /api/resolve/kbl:Component?format=original
+GET /api/resolve/kbl:Component?format=iec61360
+```
+
+If no format is given, `original` is used.
+
+Response structure:
+
+```
 {
-  "semantic_id": "mock:123",
-  "result": {
-    "semantic_id": "mock:123",
-    "source": "mock",
-    "name": "Example semantic concept"
-  }
+  "semantic_id": "kbl:Component",
+  "format": "original",
+  "result": { ... }
 }
-````
-The mock source is only used for development and testing and will later be replaced or supplemented by real semantic sources.
+```
+
+The content of `result` depends on the requested format. For `kbl:Component`, both formats return the 16 properties of the KBL type, including inherited elements.
+
+In the `iec61360` format, only supported data types are mapped (currently `xs:string` → `STRING`, `xs:boolean` → `BOOLEAN`). Unsupported or complex types are returned with `data_type: null`; the property itself is kept.
+
+Unknown semantic identifiers result in HTTP 404.
 
 ---
 
 ## Project Structure
 
-The current project structure is organized around the planned architecture:
-```text
+```
 Semantic-Hub/
 │
 ├── app/
 │   ├── api/
 │   │   └── routes/
-│   │       └── semantic.py
+│   │       └── semantic.py         # REST endpoints (resolve, suggest)
 │   │
 │   ├── formatter/
-│   │   └── iec61360.py
+│   │   ├── base.py                 # common formatter interface
+│   │   ├── original.py             # source-oriented output
+│   │   ├── iec61360.py             # IEC 61360-oriented output
+│   │   └── iec61360_types.py       # data type mapping for IEC 61360 output
+│   │
+│   ├── models/
+│   │   └── semantic.py             # internal semantic model
 │   │
 │   ├── registry/
-│   │   └── registry.py
+│   │   └── registry.py             # registration of semantic sources
 │   │
 │   ├── resolver/
-│   │   └── resolver.py
+│   │   └── resolver.py             # resolution of semantic identifiers
 │   │
 │   ├── sources/
-│   │   ├── base.py
-│   │   └── mock.py
+│   │   ├── base.py                 # common semantic source interface
+│   │   ├── mock.py                 # mock source (development / testing)
+│   │   └── kbl/
+│   │       ├── client.py           # loading of the KBL XSD
+│   │       ├── parser.py           # XSD parsing
+│   │       ├── service.py          # high-level resolution of KBL types and their elements
+│   │       ├── mapper.py           # placeholder (currently empty)
+│   │       └── source.py           # KBL semantic source
 │   │
-│   └── main.py
+│   └── main.py                     # FastAPI application
 │
-├── tests/
-│
+├── tests/                          # pytest test suite
 ├── requirements.txt
-├── Dockerfile
 └── README.md
-````
+```
+
 The structure is intentionally modular so that semantic sources and formatting logic can be developed independently from the REST API.
 
 ---
@@ -155,47 +193,71 @@ The structure is intentionally modular so that semantic sources and formatting l
 
 The Semantic Hub is intended to work with heterogeneous semantic resources.
 
-The initial target sources are:
+### KBL (implemented, limited scope)
 
-## KBL
+KBL is the first real semantic source. The source evaluates the KBL XSD v2.5 SR-1 schema, i.e. the type definitions, not KBL instance documents.
 
-KBL is planned as the first real semantic source integration.
+Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeName>:<ElementName>` for properties, e.g. `kbl:Component` and `kbl:Component:Part_number`.
 
-The existing student prototype contains a KBL mapping implementation which will be used as a reference for the new implementation.
+**Supported:**
 
-## QUDT
+- named simple and complex XSD types
+- complex type inheritance, including inherited elements
+- simple type restrictions, resolved down to the built-in XSD type
+- exact, case-sensitive resolution of type names
+- case-insensitive search of named types for suggestions
+- source provenance for concepts and properties
 
-QUDT is planned as an additional semantic source.
+**Current limitations:**
 
-The existing prototype uses SPARQL-based access to QUDT resources.
+- Only the XSD constructs listed above are supported. The goal is not to support every possible XSD structure.
+- Types that cannot be resolved are not guessed. They are kept as a type reference (`original`) or returned with `data_type: null` (`iec61360`).
+- Numeric XSD types are not mapped to an IEC 61360 data type, because the semantic context is missing.
+- `definition` and `unit` are currently `null` in the output. This does not necessarily mean that the KBL source contains no such information, only that it is not yet evaluated.
+- The XSD is loaded remotely and currently reloaded on each request; caching is planned.
+- This is not a complete KBL implementation.
 
-## VEC
+### Mock (development and testing)
 
-VEC is also planned as a semantic source.
+A mock source (`mock:` prefix) is used for development and testing. It does not yet return the internal semantic model.
 
-The implementation will be integrated through the common semantic source interface.
+### QUDT (planned)
 
-## ECLASS
+QUDT is planned as an additional semantic source. The existing prototype uses SPARQL-based access to QUDT resources.
 
- Only free available assets XML
+### VEC (planned)
+
+VEC is planned as a semantic source and will be integrated through the common semantic source interface.
+
+### ECLASS (under evaluation)
+
+The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
 
 ---
 
 ## Source Abstraction
 
-Semantic sources implement a common interface.
+Semantic sources implement a common interface (`app/sources/base.py`):
 
-Conceptually:
-```text
-class SemanticSource:
+```python
+class SemanticSource(ABC):
 
+    @abstractmethod
     def can_resolve(self, semantic_id: str) -> bool:
         ...
 
+    @abstractmethod
     def resolve(self, semantic_id: str):
         ...
-````
-The Registry uses this interface to determine which source can handle a given semantic identifier.
+
+    @abstractmethod
+    def suggest(self, query: str) -> list[str]:
+        ...
+```
+
+- `can_resolve()` is used by the Registry to determine which source is responsible for a semantic identifier.
+- `resolve()` returns the semantic information for an identifier. Real sources such as KBL return a concept of the internal semantic model.
+- `suggest()` returns semantic identifiers matching a search query.
 
 This avoids coupling the REST API directly to individual semantic dictionaries.
 
@@ -205,8 +267,7 @@ This avoids coupling the REST API directly to individual semantic dictionaries.
 
 The Resolver is responsible for resolving a semantic identifier through the registered semantic sources.
 
-Conceptually:
-```text
+```
 Semantic ID
      │
      ▼
@@ -220,20 +281,23 @@ Semantic ID
      │
      ▼
  semantic information
-````
-The resolver is intentionally separated from the HTTP layer so that the resolution logic can also be used independently of the REST API.
+```
 
----
+The resolver is intentionally separated from the HTTP layer so that the resolution logic can also be used independently of the REST API.
 
 ## Registry
 
 The Registry maintains the available semantic sources.
 
-A source can be registered with the Registry:
-```text
+A source is registered with the Registry:
+
+```python
 registry.register(source)
-````
-The Registry can then determine which source is able to resolve a given semantic identifier.
+```
+
+The Registry uses `can_resolve()` to determine which source is able to resolve a given semantic identifier.
+
+For suggestions, the Registry delegates the search query to all registered sources and aggregates their results.
 
 This provides an extensible mechanism for adding additional semantic resources.
 
@@ -241,13 +305,42 @@ This provides an extensible mechanism for adding additional semantic resources.
 
 ## Formatter
 
-The Semantic Hub is intended to transform information from different semantic sources into a common representation.
+The paper describes the use of a Formatter as part of the Retrieval Service. In this implementation, formatters convert a concept of the internal semantic model into an API representation. They operate on the internal model, not on source-specific data.
 
-The paper describes the use of a Formatter as part of the Retrieval Service.
+Two formats are currently available (`?format=` parameter):
 
-One important target representation is IEC 61360, which is relevant for AAS-based semantic descriptions.
+### `original` (default)
 
-The formatter implementation is currently only prepared as part of the project structure.
+Source-oriented, normalized representation of the internal semantic model, including properties, semantic identifiers, type references and source provenance.
+
+This is not an unchanged serialization of the source (e.g. not the original KBL XSD).
+
+### `iec61360`
+
+Minimal IEC 61360-oriented representation. This is **not** a complete or conformant IEC 61360 implementation.
+
+Output fields per concept and property:
+
+| Field | Content |
+|---|---|
+| `semantic_id` | semantic identifier |
+| `preferred_name` | name of the concept or property |
+| `definition` | description, if available |
+| `data_type` | mapped IEC 61360 data type, or `null` |
+| `unit` | unit, if available |
+| `source_of_definition` | source from the provenance, if available |
+
+Concepts additionally contain their `properties`.
+
+Data type mapping (`app/formatter/iec61360_types.py`):
+
+| Source type | IEC 61360 data type |
+|---|---|
+| `xs:string` / `string` | `STRING` |
+| `xs:boolean` / `boolean` | `BOOLEAN` |
+| all other types (numeric XSD types, complex types, unknown or missing types) | `null` |
+
+Unsupported types are not guessed. Properties with an unsupported type are kept in the output and returned with `data_type: null`.
 
 ---
 
@@ -255,48 +348,81 @@ The formatter implementation is currently only prepared as part of the project s
 
 The REST API is implemented using FastAPI.
 
-The automatically generated API documentation is available through Swagger UI:
-```text
-/docs
-````
-The OpenAPI specification is available at:
-```text
-/openapi.json
-````
+Swagger UI: `/docs`
+OpenAPI specification: `/openapi.json`
+
 ### Current endpoints
+
 #### Health
-```text
+
+```
 GET /health
-````
+```
+
 Returns the current application status.
 
 #### Root
-```text
+
+```
 GET /
-````
+```
+
 Returns basic application information.
 
 #### Semantic resolution
-```text
-GET /api/resolve/{semantic_id}
-````
-Resolves a semantic identifier using the registered semantic sources.
+
+```
+GET /api/resolve/{semantic_id}?format={original|iec61360}
+```
+
+Resolves a semantic identifier through the registered semantic sources and returns it in the requested format. If `format` is omitted, `original` is used.
 
 Example:
-```text
-GET /api/resolve/mock:123
-````
 
+```
+GET /api/resolve/kbl%3AComponent?format=iec61360
+```
+
+Response:
+
+```
+{
+  "semantic_id": "kbl:Component",
+  "format": "iec61360",
+  "result": { ... }
+}
+```
+
+Error responses:
+
+- `404` – the semantic identifier could not be resolved
+- `422` – invalid request parameters (e.g. unsupported `format` value)
+
+#### Semantic suggestions
+
+```
+GET /api/suggest?query={text}
+```
+
+Searches all registered semantic sources for semantic identifiers matching the query. `query` is required and must not be empty.
+
+Response:
+
+```
+{
+  "query": "...",
+  "results": [ ... ]
+}
+```
 ---
 
 ## Docker
 
-The Semantic Hub is intended to be deployed as a Docker container.
-
-The application is therefore being developed with containerized deployment in mind from the beginning.
+Docker-based deployment is planned. A Dockerfile does not exist yet.
 
 Planned deployment:
-```text
+
+```
 Docker Container
 ┌──────────────────────────────┐
 │                              │
@@ -309,29 +435,41 @@ Docker Container
 │        Semantic Sources      │
 │                              │
 └──────────────────────────────┘
-````
-The GUI and additional infrastructure may later be deployed as separate services using Docker Compose.
+```
+
+Additional services may later be deployed as separate containers using Docker Compose, for example:
+
+- a graphical user interface
+- a database-backed cache for source data and resolved concepts (under consideration; the caching approach has not been decided yet)
 
 ---
 
 ## Development
 
+Developed and tested with Python 3.13.
+
 Install the Python dependencies:
-```text
+
+```
 pip install -r requirements.txt
-````
+```
+
 Start the development server:
-```text
+
+```
 uvicorn app.main:app --reload
-````
-The API will then be available at:
-```text
-http://127.0.0.1:8000
-````
-Swagger UI:
-```text
-http://127.0.0.1:8000/docs
-````
+```
+
+The API will then be available at `http://127.0.0.1:8000`, Swagger UI at `http://127.0.0.1:8000/docs`.
+
+Run the tests:
+
+```
+python -m pytest
+```
+
+Note: The KBL source loads the KBL XSD from the prostep ECAD wiki at runtime. Resolving KBL identifiers therefore requires network access; KBL-related tests may require it as well.
+
 ---
 
 ## Reference

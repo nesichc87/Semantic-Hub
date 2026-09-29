@@ -90,3 +90,47 @@ def test_format_property_with_unsupported_data_type_returns_none():
         "kbl:Component:Mass_information"
     )
     assert result.properties[0].data_type is None
+
+def test_format_mixed_properties_keeps_all_and_maps_only_supported_types():
+    concept = SemanticConcept(
+        semantic_id="kbl:Component",
+        source="kbl",
+        name="Component",
+        properties=[
+            SemanticProperty(
+                semantic_id="kbl:Component:Part_number",
+                name="Part_number",
+                data_type="xs:string",
+            ),
+            SemanticProperty(
+                semantic_id="kbl:Component:Alias_id",
+                name="Alias_id",
+                data_type="kbl:Alias_identification",
+            ),
+            SemanticProperty(
+                semantic_id="kbl:Component:Mass_information",
+                name="Mass_information",
+                data_type="kbl:Numerical_value",
+            ),
+        ],
+    )
+
+    formatter = IEC61360Formatter()
+
+    result = formatter.format(concept)
+
+    assert [p.semantic_id for p in result.properties] == [
+        "kbl:Component:Part_number",
+        "kbl:Component:Alias_id",
+        "kbl:Component:Mass_information",
+    ]
+    assert [p.preferred_name for p in result.properties] == [
+        "Part_number",
+        "Alias_id",
+        "Mass_information",
+    ]
+    assert [p.data_type for p in result.properties] == [
+        "STRING",
+        None,
+        None,
+    ]
