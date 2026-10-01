@@ -215,6 +215,7 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 - named simple and complex XSD types
 - complex type inheritance, including inherited elements
 - simple type restrictions, resolved down to the built-in XSD type
+- simple types are returned as concepts without properties; their base type is kept as the concept's `data_type`
 - exact, case-sensitive resolution of type names
 - case-insensitive search of named types for suggestions
 - source provenance for concepts and properties
@@ -367,7 +368,7 @@ Output fields per concept and property:
 | `unit` | unit, if available |
 | `source_of_definition` | source from the provenance, if available |
 
-Concepts additionally contain their `properties`.
+Concepts additionally contain their `properties` and a `data_type`. The concept's `data_type` is set for value types (e.g. KBL simple types, using their base type) and is `null` for concepts that are described by properties (e.g. KBL complex types, VEC classes). It is mapped with the same rules as property data types.
 
 Data type mapping (`app/formatter/iec61360_types.py`):
 

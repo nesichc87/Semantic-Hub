@@ -39,4 +39,5 @@ class IEC61360Formatter(SemanticFormatter):
             definition=concept.description,
             source_of_definition=concept.provenance.get("source"),
             properties=properties,
+            data_type=map_data_type(concept.data_type),
         )

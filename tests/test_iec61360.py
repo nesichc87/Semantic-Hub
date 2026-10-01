@@ -134,3 +134,40 @@ def test_format_mixed_properties_keeps_all_and_maps_only_supported_types():
         None,
         None,
     ]
+def test_format_concept_data_type_is_mapped():
+    concept = SemanticConcept(
+        semantic_id="kbl:SI_unit_name",
+        source="kbl",
+        name="SI_unit_name",
+        data_type="xs:string",
+    )
+
+    result = IEC61360Formatter().format(concept)
+
+    assert result.data_type == "STRING"
+    assert result.properties == []
+
+
+def test_format_concept_with_unsupported_data_type_returns_none():
+    concept = SemanticConcept(
+        semantic_id="kbl:Example",
+        source="kbl",
+        name="Example",
+        data_type="xs:integer",
+    )
+
+    result = IEC61360Formatter().format(concept)
+
+    assert result.data_type is None
+
+
+def test_format_concept_without_data_type_returns_none():
+    concept = SemanticConcept(
+        semantic_id="kbl:Component",
+        source="kbl",
+        name="Component",
+    )
+
+    result = IEC61360Formatter().format(concept)
+
+    assert result.data_type is None

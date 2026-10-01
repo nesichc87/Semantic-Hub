@@ -66,3 +66,4 @@ class IEC61360Concept:
     source_of_definition: str | None = None
 
     properties: list[IEC61360Property] = field(default_factory=list)
+    data_type: str | None = None
