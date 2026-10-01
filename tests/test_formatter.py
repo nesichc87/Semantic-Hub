@@ -35,3 +35,28 @@ def test_original_formatter():
     assert result["properties"][0]["data_type"] == "xs:string"
 
     assert result["provenance"]["source"] == "kbl"
+
+def test_original_formatter_includes_concept_data_type():
+    concept = SemanticConcept(
+        semantic_id="kbl:SI_unit_name",
+        source="kbl",
+        name="SI_unit_name",
+        data_type="xs:string",
+    )
+
+    result = OriginalFormatter().format(concept)
+
+    assert result["data_type"] == "xs:string"
+    assert result["properties"] == []
+
+
+def test_original_formatter_concept_data_type_defaults_to_none():
+    concept = SemanticConcept(
+        semantic_id="kbl:Component",
+        source="kbl",
+        name="Component",
+    )
+
+    result = OriginalFormatter().format(concept)
+
+    assert result["data_type"] is None

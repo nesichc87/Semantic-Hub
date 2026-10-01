@@ -17,6 +17,7 @@ class OriginalFormatter(SemanticFormatter):
             "source": concept.source,
             "name": concept.name,
             "description": concept.description,
+            "data_type": concept.data_type,
             "properties": [
                 {
                     "semantic_id": prop.semantic_id,
