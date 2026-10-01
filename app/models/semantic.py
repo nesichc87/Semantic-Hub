@@ -31,6 +31,8 @@ class SemanticConcept:
 
     provenance: dict[str, str] = field(default_factory=dict)
 
+    data_type: str | None = None
+
 
 @dataclass
 class IEC61360Property:
