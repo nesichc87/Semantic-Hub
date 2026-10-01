@@ -71,6 +71,10 @@ resolver = SemanticResolver(registry)
 
 original_formatter = OriginalFormatter()
 iec61360_formatter = IEC61360Formatter()
+formatters = {
+    "original": original_formatter,
+    "iec61360": iec61360_formatter,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -107,15 +111,7 @@ def resolve(
     try:
         concept = resolver.resolve(semantic_id)
 
-        if format == "original":
-            result = original_formatter.format(concept)
-        elif format == "iec61360":
-            result = iec61360_formatter.format(concept)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported format '{format}'",
-            )
+        result = formatters[format].format(concept)
 
         return {
             "semantic_id": semantic_id,

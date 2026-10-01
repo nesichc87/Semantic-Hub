@@ -29,3 +29,7 @@ def test_resolve_mock_in_iec61360_format():
     assert body["result"]["semantic_id"] == "mock:123"
     assert body["result"]["preferred_name"] == "Example semantic concept"
     assert body["result"]["properties"] == []
+def test_resolve_with_unsupported_format_returns_422():
+    response = client.get("/api/resolve/mock:123?format=xml")
+
+    assert response.status_code == 422
