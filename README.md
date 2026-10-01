@@ -15,7 +15,7 @@ The implementation is developed based on the architecture and concepts described
 
 🚧 Early development / Work in progress
 
-The project is being built up incrementally. KBL is the first real semantic source and is integrated with a limited scope.
+The project is being built up incrementally. KBL (XSD-based) and VEC (ontology-based) are integrated as semantic sources with a limited scope.
 
 ### Currently implemented
 
@@ -29,12 +29,19 @@ The project is being built up incrementally. KBL is the first real semantic sour
   - resolution of simple type restrictions down to the built-in XSD type
   - exact, case-sensitive type resolution
   - case-insensitive search of named types for suggestions
+- **VEC source (limited scope)**, based on the VEC 2.2.0 OWL ontology (Turtle):
+  - resolution of named ontology classes
+  - properties attached via `rdfs:domain`, including properties inherited via `rdfs:subClassOf`
+  - definitions from `rdfs:comment` for classes and properties
+  - exact, case-sensitive class resolution
+  - case-insensitive search of class names for suggestions
+- In-memory caching of the parsed source data (KBL XSD, VEC ontology) for the lifetime of the process
 - Internal semantic model (concepts, properties, source provenance)
 - Output formats:
   - `original` – source-oriented, normalized representation of the internal model (not an unchanged KBL serialization)
   - `iec61360` – minimal IEC 61360-oriented representation with partial data type mapping (not a complete or conformant IEC 61360 implementation)
 - Suggestion endpoint for semantic identifiers
-- Automated tests (pytest) for the semantic model, KBL type resolution, data type mapping and formatters
+- Automated tests (pytest) for the semantic model, KBL and VEC resolution, data type mapping, formatters and API
 
 ### Planned
 
@@ -67,15 +74,16 @@ The project follows a layered architecture that separates the REST API from sema
                         │
         ┌───────────────┼───────────────┐
         ▼               ▼               ▼
-       KBL             QUDT            VEC
-   (limited)        (planned)       (planned)
-        │
-        ▼
+       KBL             VEC             QUDT
+   (XSD, limited)  (OWL, limited)   (planned)
+        │               │
+        └───────┬───────┘
+                ▼
  Internal Semantic Model
  (concepts, properties, provenance)
         │
         ▼
-    Formatter
+  Formatter
  (original / iec61360)
         │
         ▼
@@ -84,7 +92,7 @@ The project follows a layered architecture that separates the REST API from sema
 
 Semantic sources are implemented behind a common interface and map their source information into the internal semantic model. Source provenance is kept in the model.
 
-The formatters operate on the internal semantic model rather than on source-specific data. This is intended to allow additional sources to reuse the existing output formats. Whether the internal model is sufficiently source-independent will be verified when a second source is integrated.
+The formatters operate on the internal semantic model rather than on source-specific data. This is intended to allow additional sources to reuse the existing output formats. With VEC as a second, differently modelled source (OWL ontology instead of XSD, ontology-native property identifiers instead of composed ones), the existing formatters, resolver and API endpoints could be reused without changes.
 
 A mock source is additionally available for development and testing.
 
@@ -171,13 +179,16 @@ Semantic-Hub/
 │   ├── sources/
 │   │   ├── base.py                 # common semantic source interface
 │   │   ├── mock.py                 # mock source (development / testing)
-│   │   └── kbl/
-│   │       ├── client.py           # loading of the KBL XSD
-│   │       ├── parser.py           # XSD parsing
-│   │       ├── service.py          # high-level resolution of KBL types and their elements
-│   │       ├── mapper.py           # placeholder (currently empty)
-│   │       └── source.py           # KBL semantic source, maps resolved types to the internal model
-│   │
+│   │   ├──kbl/
+│   │   │   ├── client.py           # loading of the KBL XSD
+│   │   │   ├── parser.py           # XSD parsing
+│   │   │   ├── service.py          # high-level resolution of KBL types and their elements
+│   │   │   ├── mapper.py           # placeholder (currently empty)
+│   │   │   └── source.py           # KBL semantic source, maps resolved types to the internal model
+│   │   └── vec/
+│   │       ├── client.py           # loading of the VEC ontology (Turtle)
+│   │       ├── service.py          # resolution of VEC classes, properties and inheritance
+│   │       └── source.py           # VEC semantic source, maps classes to the internal model
 │   └── main.py                     # FastAPI application
 │
 ├── tests/                          # pytest test suite
@@ -226,9 +237,34 @@ A mock source (`mock:` prefix) is used for development and testing. It returns a
 
 QUDT is planned as an additional semantic source. The existing prototype uses SPARQL-based access to QUDT resources.
 
-### VEC (planned)
+### VEC (implemented, limited scope)
 
-VEC is planned as a semantic source and will be integrated through the common semantic source interface.
+VEC is the second real semantic source. It is integrated via the VEC 2.2.0 OWL ontology (Turtle), not the VEC XSD. This keeps KBL (XSD-based) and the ontology-based sources (VEC, later QUDT) on their natural representation.
+
+Semantic identifiers use the form `vec:<ClassName>` for concepts. Properties keep their ontology-native identifiers, e.g. `vec:PartVersion` and `vec:partVersionPartNumber`. Unlike KBL, property identifiers are therefore not composed from the concept name.
+
+**Supported:**
+
+- named OWL classes in the VEC namespace
+- properties attached via `rdfs:domain`
+- inherited properties via `rdfs:subClassOf`; inherited properties come first, starting with the most general base class
+- definitions from `rdfs:comment` for classes and properties (English or language-neutral comments preferred)
+- data types from `rdfs:range`; XSD ranges are normalized to the `xs:` prefix (e.g. `xs:string`)
+- exact, case-sensitive class resolution
+- case-insensitive search of class names for suggestions
+- source provenance; for properties, `source_reference` points to the property resource itself
+
+**Current limitations:**
+
+- Only classes can be resolved. Properties, individuals and enumeration values are not resolvable as separate semantic identifiers.
+- OWL restrictions (e.g. cardinalities) are not evaluated.
+- Object properties have a class as range (e.g. `vec:AliasIdentification`); they are returned with `data_type: null` in the `iec61360` format.
+- If a property has several ranges, the first one (sorted) is used.
+- `unit` is not evaluated and currently `null`.
+- The ontology is loaded remotely on first use and then kept in memory for the lifetime of the process.
+- This is not a complete VEC implementation.
+
+An earlier student prototype mapping the VEC ontology to IEC 61360 served as a reference for the mapping of `rdfs:label`/`rdfs:comment`. Its fuzzy best-match resolution was intentionally not adopted: resolution remains exact, fuzzy matching is limited to suggestions.
 
 ### ECLASS (under evaluation)
 
@@ -469,7 +505,7 @@ Run the tests:
 python -m pytest
 ```
 
-Note: The KBL source loads the KBL XSD from the prostep ECAD wiki at runtime. Resolving KBL identifiers therefore requires network access; KBL-related tests may require it as well.
+Note: The KBL and VEC sources load their source data (KBL XSD, VEC ontology) from the prostep ECAD wiki on first use. Resolving KBL or VEC identifiers therefore requires network access; KBL-related tests may require it as well. The VEC tests use a small self-written ontology and run without network access.
 
 ---
 
