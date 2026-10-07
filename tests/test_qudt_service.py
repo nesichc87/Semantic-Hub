@@ -102,3 +102,24 @@ def test_suggest_units_returns_empty_list_for_blank_query():
     service = QUDTService(client=FakeClient())
 
     assert service.suggest_units("   ") == []
+
+SPACED_TTL = b"""
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+unit:Spaced a qudt:Unit ;
+    rdfs:label "Spaced   unit"@en ;
+    qudt:plainTextDescription "First   part,\\n    second part." .
+"""
+
+
+def test_get_unit_normalizes_whitespace():
+    service = QUDTService(client=FakeClient(SPACED_TTL))
+
+    result = service.get_unit("qudt:unit:Spaced")
+
+    assert result == {
+        "name": "Spaced unit",
+        "description": "First part, second part.",
+    }

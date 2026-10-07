@@ -113,10 +113,13 @@ class QUDTService:
 
         Only the exact language tag 'en' counts as English. Regional
         variants such as 'en-US' are ignored.
+
+        Whitespace is normalized, because line breaks and repeated
+        spaces in QUDT literals stem from the Turtle formatting.
         """
 
         values = sorted(
-            str(o).strip()
+            " ".join(str(o).split())
             for o in graph.objects(node, predicate)
             if isinstance(o, Literal) and o.language in (None, "en")
         )
