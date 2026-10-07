@@ -1,6 +1,8 @@
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
+import os
+
 
 from app.formatter.original import OriginalFormatter
 from app.registry.registry import SemanticRegistry
@@ -17,14 +19,17 @@ from app.sources.vec.source import VECSemanticSource
 from app.sources.qudt.client import QUDTClient
 from app.sources.qudt.service import QUDTService
 from app.sources.qudt.source import QUDTSemanticSource
+from app.config import source_url
 
 
 router = APIRouter()
 
 
-KBL_XSD_URL = (
+KBL_XSD_URL = source_url(
+    os.environ,
+    "SEMANTIC_HUB_KBL_XSD_URL",
     "https://ecad-wiki.prostep.org/"
-    "specifications/kbl/v25-sr1/kbl2.5-sr1.xsd"
+    "specifications/kbl/v25-sr1/kbl2.5-sr1.xsd",
 )
 
 
@@ -46,9 +51,11 @@ kbl_source = KBLSemanticSource(kbl_service)
 # VEC source configuration
 # ---------------------------------------------------------------------------
 
-VEC_TTL_URL = (
+VEC_TTL_URL = source_url(
+    os.environ,
+    "SEMANTIC_HUB_VEC_TTL_URL",
     "https://ecad-wiki.prostep.org/"
-    "specifications/vec/v220/vec-2.2.0-ontology.ttl"
+    "specifications/vec/v220/vec-2.2.0-ontology.ttl",
 )
 
 vec_client = VECClient(VEC_TTL_URL)
@@ -59,7 +66,11 @@ vec_source = VECSemanticSource(vec_service)
 # QUDT source configuration
 # ---------------------------------------------------------------------------
 
-QUDT_UNIT_TTL_URL = "https://qudt.org/vocab/unit/"
+QUDT_UNIT_TTL_URL = source_url(
+    os.environ,
+    "SEMANTIC_HUB_QUDT_UNIT_TTL_URL",
+    "https://qudt.org/vocab/unit/",
+)
 
 qudt_client = QUDTClient(QUDT_UNIT_TTL_URL)
 qudt_service = QUDTService(client=qudt_client)

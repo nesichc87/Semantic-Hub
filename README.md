@@ -199,6 +199,7 @@ Semantic-Hub/
 │   │   │   ├── service.py          # resolution and search of QUDT units
 │   │   │   ├── mapper.py           # maps resolved units to the internal model
 │   │   │   └── source.py           # QUDT semantic source
+│   ├── config.py                   # source URL configuration via environment variables
 │   └── main.py                     # FastAPI application
 │
 ├── tests/                          # pytest test suite
@@ -545,6 +546,27 @@ python -m pytest
 ```
 
 Note: The KBL, VEC and QUDT sources load their source data (KBL XSD, VEC ontology, QUDT unit vocabulary) from the prostep ECAD wiki and qudt.org on first use. Resolving KBL, VEC or QUDT identifiers therefore requires network access; KBL-related tests may require it as well. The VEC and QUDT tests use small self-written vocabularies and run without network access.
+
+To run without network access, local copies of the source data can be configured (see below).
+
+### Configuring source URLs
+
+The source URLs can be overridden with environment variables. If a variable is not set or empty, the default online URL is used.
+
+| Variable | Source | Default |
+|---|---|---|
+| `SEMANTIC_HUB_KBL_XSD_URL` | KBL XSD | `https://ecad-wiki.prostep.org/specifications/kbl/v25-sr1/kbl2.5-sr1.xsd` |
+| `SEMANTIC_HUB_VEC_TTL_URL` | VEC ontology | `https://ecad-wiki.prostep.org/specifications/vec/v220/vec-2.2.0-ontology.ttl` |
+| `SEMANTIC_HUB_QUDT_UNIT_TTL_URL` | QUDT unit vocabulary | `https://qudt.org/vocab/unit/` |
+
+The variables are read when the application starts, so they must be set before the server is started. Local copies can be configured as `file://` URLs, e.g. in PowerShell:
+
+```
+$env:SEMANTIC_HUB_VEC_TTL_URL = "file:///C:/sources/vec-2.2.0-ontology.ttl"
+uvicorn app.main:app
+```
+
+A local copy must have the same format as the online source (XSD for KBL, Turtle for VEC and QUDT). Local copies of source data are not part of this repository; the licenses of the respective sources apply (see Semantic Sources).
 
 ---
 
