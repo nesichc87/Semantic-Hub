@@ -60,6 +60,43 @@ class QUDTService:
             "description": description,
         }
 
+    def suggest_units(self, query: str) -> list[str]:
+        """
+        Suggest QUDT unit identifiers matching the query.
+
+        Matches the local name and English or untagged labels,
+        case-insensitively. Resolution itself remains case-sensitive
+        and exact.
+        """
+
+        search = query.strip().lower()
+
+        if not search:
+            return []
+
+        graph = self._get_graph()
+        matches = set()
+
+        for unit in graph.subjects(RDF.type, QUDT_UNIT):
+            if not isinstance(unit, URIRef) or not str(unit).startswith(
+                QUDT_UNIT_NAMESPACE
+            ):
+                continue
+
+            local_name = str(unit)[len(QUDT_UNIT_NAMESPACE):]
+            labels = (
+                str(o)
+                for o in graph.objects(unit, RDFS.label)
+                if isinstance(o, Literal) and o.language in (None, "en")
+            )
+
+            if search in local_name.lower() or any(
+                search in label.lower() for label in labels
+            ):
+                matches.add(UNIT_PREFIX + local_name)
+
+        return sorted(matches)
+
     @staticmethod
     def _local_name(semantic_id: str) -> str:
         if not semantic_id.startswith(UNIT_PREFIX):

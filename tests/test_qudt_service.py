@@ -75,3 +75,30 @@ def test_get_unit_falls_back_to_local_name_without_english_label():
     result = service.get_unit("qudt:unit:GermanOnly")
 
     assert result["name"] == "GermanOnly"
+def test_suggest_units_matches_english_label_case_insensitive():
+    service = QUDTService(client=FakeClient())
+
+    assert service.suggest_units("METRE") == ["qudt:unit:M"]
+    assert service.suggest_units("  foot  ") == ["qudt:unit:FT"]
+
+
+def test_suggest_units_matches_local_name_without_duplicates():
+    service = QUDTService(client=FakeClient())
+
+    assert service.suggest_units("m") == [
+        "qudt:unit:GermanOnly",
+        "qudt:unit:M",
+    ]
+
+
+def test_suggest_units_ignores_non_english_labels():
+    service = QUDTService(client=FakeClient())
+
+    assert service.suggest_units("deutsch") == []
+    assert service.suggest_units("meter") == []
+
+
+def test_suggest_units_returns_empty_list_for_blank_query():
+    service = QUDTService(client=FakeClient())
+
+    assert service.suggest_units("   ") == []
