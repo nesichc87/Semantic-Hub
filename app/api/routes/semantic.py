@@ -14,6 +14,9 @@ from app.formatter.iec61360 import IEC61360Formatter
 from app.sources.vec.client import VECClient
 from app.sources.vec.service import VECService
 from app.sources.vec.source import VECSemanticSource
+from app.sources.qudt.client import QUDTClient
+from app.sources.qudt.service import QUDTService
+from app.sources.qudt.source import QUDTSemanticSource
 
 
 router = APIRouter()
@@ -53,6 +56,16 @@ vec_service = VECService(client=vec_client)
 vec_source = VECSemanticSource(vec_service)
 
 # ---------------------------------------------------------------------------
+# QUDT source configuration
+# ---------------------------------------------------------------------------
+
+QUDT_UNIT_TTL_URL = "https://qudt.org/vocab/unit/"
+
+qudt_client = QUDTClient(QUDT_UNIT_TTL_URL)
+qudt_service = QUDTService(client=qudt_client)
+qudt_source = QUDTSemanticSource(qudt_service)
+
+# ---------------------------------------------------------------------------
 # Semantic registry and resolver
 # ---------------------------------------------------------------------------
 
@@ -61,6 +74,7 @@ registry = SemanticRegistry()
 registry.register(MockSemanticSource())
 registry.register(kbl_source)
 registry.register(vec_source)
+registry.register(qudt_source)
 
 resolver = SemanticResolver(registry)
 

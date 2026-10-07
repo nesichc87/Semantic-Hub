@@ -15,7 +15,7 @@ The implementation is developed based on the architecture and concepts described
 
 🚧 Early development / Work in progress
 
-The project is being built up incrementally. KBL (XSD-based) and VEC (ontology-based) are integrated as semantic sources with a limited scope.
+The project is being built up incrementally. KBL (XSD-based), VEC (ontology-based) and QUDT (RDF vocabulary) are integrated as semantic sources with a limited scope.
 
 ### Currently implemented
 
@@ -35,7 +35,12 @@ The project is being built up incrementally. KBL (XSD-based) and VEC (ontology-b
   - definitions from `rdfs:comment` for classes and properties
   - exact, case-sensitive class resolution
   - case-insensitive search of class names for suggestions
-- In-memory caching of the parsed source data (KBL XSD, VEC ontology) for the lifetime of the process
+- **QUDT source (limited scope)**, based on the QUDT unit vocabulary (Turtle):
+  - resolution of units (`qudt:Unit`) in the QUDT unit namespace
+  - names from English or untagged labels, descriptions from plain-text or Dublin Core descriptions
+  - exact, case-sensitive unit resolution
+  - case-insensitive search of unit names and English labels for suggestions
+- In-memory caching of the parsed source data (KBL XSD, VEC ontology, QUDT unit vocabulary) for the lifetime of the process
 - Internal semantic model (concepts, properties, source provenance)
 - Output formats:
   - `original` – source-oriented, normalized representation of the internal model (not an unchanged KBL serialization)
@@ -45,7 +50,7 @@ The project is being built up incrementally. KBL (XSD-based) and VEC (ontology-b
 
 ### Planned
 
-- QUDT integration
+- QUDT quantity kinds and unit values (e.g. symbol, IEC 61360 code)
 - VEC integration
 - ECLASS (under evaluation): based on the ECLASS 16.0 Asset; integration approach and licensing conditions are still to be clarified
 - Review and extension of the IEC 61360-oriented output
@@ -75,7 +80,7 @@ The project follows a layered architecture that separates the REST API from sema
         ┌───────────────┼───────────────┐
         ▼               ▼               ▼
        KBL             VEC             QUDT
-   (XSD, limited)  (OWL, limited)   (planned)
+   (XSD, limited)  (OWL, limited)   (TTL, limited)
         │               │
         └───────┬───────┘
                 ▼
@@ -185,10 +190,15 @@ Semantic-Hub/
 │   │   │   ├── service.py          # high-level resolution of KBL types and their elements
 │   │   │   ├── mapper.py           # placeholder (currently empty)
 │   │   │   └── source.py           # KBL semantic source, maps resolved types to the internal model
-│   │   └── vec/
-│   │       ├── client.py           # loading of the VEC ontology (Turtle)
-│   │       ├── service.py          # resolution of VEC classes, properties and inheritance
-│   │       └── source.py           # VEC semantic source, maps classes to the internal model
+│   │   ├── vec/
+│   │   │    ├── client.py           # loading of the VEC ontology (Turtle)
+│   │   │    ├── service.py          # resolution of VEC classes, properties and inheritance
+│   │   │    └── source.py           # VEC semantic source, maps classes to the internal model
+│   │   ├── qudt/
+│   │   │   ├── client.py           # loading of the QUDT unit vocabulary (Turtle)
+│   │   │   ├── service.py          # resolution and search of QUDT units
+│   │   │   ├── mapper.py           # maps resolved units to the internal model
+│   │   │   └── source.py           # QUDT semantic source
 │   └── main.py                     # FastAPI application
 │
 ├── tests/                          # pytest test suite
@@ -234,9 +244,37 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 
 A mock source (`mock:` prefix) is used for development and testing. It returns a minimal concept of the internal semantic model.
 
-### QUDT (planned)
+### QUDT (implemented, limited scope)
 
-QUDT is planned as an additional semantic source. The existing prototype uses SPARQL-based access to QUDT resources.
+QUDT is the third real semantic source. It is integrated via the QUDT unit vocabulary in Turtle (`https://qudt.org/vocab/unit/`), which is loaded as an RDF graph like the VEC ontology. The integration was checked against QUDT release 3.5.2 (2,932 units). QUDT publishes new releases regularly, so the content behind this URL can change.
+
+Semantic identifiers use the form `qudt:unit:<LocalName>`, e.g. `qudt:unit:M` for `http://qudt.org/vocab/unit/M`.
+
+```
+GET /api/resolve/qudt%3Aunit%3AM?format=original
+```
+
+**Supported:**
+
+- units (`qudt:Unit`) in the QUDT unit namespace; units are individuals, not classes
+- name from `rdfs:label` with the language tag `en` or without a tag; regional variants such as `en-US` are ignored. If no such label exists (2 of 2,932 units in release 3.5.2), the local name is used (e.g. `M`).
+- description from `qudt:plainTextDescription`, falling back to `dcterms:description`. In release 3.5.2, 823 units have a plain-text description and 2,438 a Dublin Core description; the fallback may contain LaTeX markup.
+- whitespace in names and descriptions is normalized, because line breaks and repeated spaces stem from the Turtle formatting
+- exact, case-sensitive unit resolution
+- case-insensitive search of local names and English or untagged labels for suggestions
+
+**Current limitations:**
+
+- Only units can be resolved. Quantity kinds are not supported yet.
+- Unit values such as symbol, UCUM code, IEC 61360 code, quantity kinds or conversion multiplier are not mapped yet. Units are returned as concepts without properties and with `data_type: null`.
+- Only English or untagged literals are used for names and descriptions.
+- Suggestions can return many results (e.g. 766 units for `metre`), sorted alphabetically without ranking.
+- The vocabulary (about 4 MB) is loaded remotely on first use and then kept in memory for the lifetime of the process. Parsing took about 2.3 s in a local test.
+- This is not a complete QUDT implementation.
+
+**License:** According to the `dcterms:rights` statement in the vocabulary metadata, the QUDT ontologies are issued under CC BY 4.0. The metadata additionally states that UCUM tables, codes and definitions are subject to a separate license. No QUDT data is included in this repository.
+
+An earlier prototype accessed QUDT via a SPARQL endpoint. A file-based approach was chosen instead to keep the same source pattern as VEC and to resolve against a fixed release within a process. The prototype's fuzzy best-match resolution was not adopted.
 
 ### VEC (implemented, limited scope)
 
@@ -506,7 +544,7 @@ Run the tests:
 python -m pytest
 ```
 
-Note: The KBL and VEC sources load their source data (KBL XSD, VEC ontology) from the prostep ECAD wiki on first use. Resolving KBL or VEC identifiers therefore requires network access; KBL-related tests may require it as well. The VEC tests use a small self-written ontology and run without network access.
+Note: The KBL, VEC and QUDT sources load their source data (KBL XSD, VEC ontology, QUDT unit vocabulary) from the prostep ECAD wiki and qudt.org on first use. Resolving KBL, VEC or QUDT identifiers therefore requires network access; KBL-related tests may require it as well. The VEC and QUDT tests use small self-written vocabularies and run without network access.
 
 ---
 
