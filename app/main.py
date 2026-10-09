@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 
 from app.api.routes import semantic
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 
 app = FastAPI(
@@ -22,6 +26,9 @@ app.include_router(
     prefix="/api",
     tags=["Semantic Hub"],
 )
+UI_DIR = Path(__file__).parent / "static" / "ui"
+
+app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
 
 @app.get("/")
 def root():

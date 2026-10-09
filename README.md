@@ -57,7 +57,7 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
 - Review and extension of the IEC 61360-oriented output
 - Persistent caching of source data (approach to be decided, e.g. file-based or database-backed)
 - AAS-compatible semantic information
-- Graphical user interface
+- Graphical user interface (demo page under `/ui/`, in progress)
 - Docker-based deployment
 
 ---
@@ -448,6 +448,14 @@ GET /
 
 Returns basic application information.
 
+#### Demo page
+
+```
+GET /ui/
+```
+
+Serves a static demo page (HTML, CSS and JavaScript, no external dependencies). Work in progress.
+
 #### Semantic resolution
 
 ```
@@ -541,7 +549,7 @@ Start the development server:
 uvicorn app.main:app --reload
 ```
 
-The API will then be available at `http://127.0.0.1:8000`, Swagger UI at `http://127.0.0.1:8000/docs`.
+The API will then be available at `http://127.0.0.1:8000`, Swagger UI at `http://127.0.0.1:8000/docs` and the demo page at `http://127.0.0.1:8000/ui/`.
 
 Run the tests:
 
