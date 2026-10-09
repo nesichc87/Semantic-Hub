@@ -4,9 +4,107 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Semantic Hub</title>
-    <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="ui.css">
 </head>
 <body>
-  <h1>Semantic Hub</h1>
+<div class="stage">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Semantic Hub</h1>
+      <p>Ein Zugang zu Leitungssatz-Semantik und Einheiten, mit IEC-61360-Sicht</p>
+    </div>
+    <div class="legend" aria-label="Quellen">
+      <span class="src kbl">KBL <small>XSD 2.5 SR-1</small></span>
+      <span class="src vec">VEC <small>Ontologie 2.2.0</small></span>
+      <span class="src qudt">QUDT <small>Units</small></span>
+    </div>
+  </header>
+
+  <section class="search" aria-label="Suche">
+    <div class="field">
+      <label for="q">Semantic ID auflösen oder Begriff suchen</label>
+      <div class="inputrow">
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="z. B. kbl:Component oder metre">
+        <button type="button" id="resolve-btn" class="resolve">Auflösen</button>
+      </div>
+      <p class="hint">Tippen zeigt Vorschläge (<code>suggest</code>, unscharf). Enter oder „Auflösen“ sucht genau diese ID (<code>resolve</code>, exakt, case-sensitive).</p>
+      <div id="suggest" class="suggest" role="listbox" aria-label="Vorschläge" hidden></div>
+    </div>
+    <div class="examples">
+      <span>Beispiele</span>
+      <button type="button" class="kbl" data-id="kbl:Component" aria-pressed="false">kbl:Component</button>
+      <button type="button" class="vec" data-id="vec:PartVersion" aria-pressed="false">vec:PartVersion</button>
+      <button type="button" class="qudt" data-id="qudt:unit:M" aria-pressed="false">qudt:unit:M</button>
+      <button type="button" class="err" data-id="kbl:component" aria-pressed="false">kbl:component <small>404</small></button>
+    </div>
+  </section>
+
+  <section class="flow" aria-label="Weg der Anfrage">
+    <div class="step"><div class="n">1 · Anfrage</div><div class="t">REST</div><div class="d" id="flow-request">GET /api/resolve/{semantic_id}</div></div>
+    <div class="step"><div class="n">2 · Quelle</div><div class="t" id="flow-source">KBL · VEC · QUDT</div><div class="d" id="flow-source-detail">XSD bzw. Ontologie</div></div>
+    <div class="step"><div class="n">3 · Internes Modell</div><div class="t">SemanticConcept</div><div class="d" id="flow-model">name · description · properties</div></div>
+    <div class="step"><div class="n">4 · Ausgabe</div><div class="t">IEC 61360</div><div class="d">preferred_name · definition · data_type</div></div>
+  </section>
+
+  <section id="empty" aria-label="Hinweis">
+    <p class="hint">Wähle ein Beispiel oder gib eine Semantic ID ein.</p>
+  </section>
+
+  <section id="notfound" class="notfound" aria-label="Nicht gefunden" hidden>
+    <div class="concept-head">
+      <span class="pill err">resolve · 404</span>
+      <h2 id="notfound-id"></h2>
+    </div>
+    <p>Diese ID gibt es nicht. <code>resolve</code> ist exakt und case-sensitive, der Hub rät nicht.</p>
+    <p id="didyoumean" class="didyoumean" hidden></p>
+  </section>
+
+  <section id="concept" aria-label="Konzept" hidden>
+    <div class="concept-head">
+      <span class="pill ok">resolve · 200</span>
+      <span id="concept-source" class="src"></span>
+      <h2 id="concept-id"></h2>
+      <p>exakt aufgelöst · nichts geraten</p>
+    </div>
+  </section>
+
+  <section id="views" class="views" hidden>
+    <article class="view">
+      <div class="view-head"><h3><code>format=original</code></h3><p>wie die Quelle es beschreibt</p></div>
+      <dl id="view-original" class="kv"></dl>
+    </article>
+    <article class="view">
+      <div class="view-head"><h3><code>format=iec61360</code></h3><p>Sicht für die AAS-ConceptDescription</p></div>
+      <dl id="view-iec" class="kv"></dl>
+    </article>
+  </section>
+
+  <section id="props" class="props" aria-label="Properties" hidden>
+    <div class="props-head"><h3>Properties <span id="props-count" class="mono"></span></h3></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>semantic_id</th>
+            <th>data_type (Quelle)</th>
+            <th class="arrow"></th>
+            <th>data_type (IEC 61360)</th>
+            <th>unit</th>
+            <th>Herkunft</th>
+          </tr>
+        </thead>
+        <tbody id="props-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <div><strong>null heißt: nicht in der Quelle</strong>Der Hub füllt keine Lücken mit Vermutungen. Typen ohne eindeutige Zuordnung bleiben als Referenz erhalten.</div>
+    <div><strong>Herkunft bleibt sichtbar</strong>Jedes Konzept und jede Property trägt ihre Quelle.</div>
+    <div><strong>Begrenzter Umfang</strong>KBL, VEC und QUDT sind angebunden, nicht vollständig abgebildet.</div>
+  </footer>
+
+</div>
 </body>
 </html>
