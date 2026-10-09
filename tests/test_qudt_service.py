@@ -82,12 +82,12 @@ def test_suggest_units_matches_english_label_case_insensitive():
     assert service.suggest_units("  foot  ") == ["qudt:unit:FT"]
 
 
-def test_suggest_units_matches_local_name_without_duplicates():
+def test_suggest_units_matches_local_name_without_duplicates_ranked():
     service = QUDTService(client=FakeClient())
 
     assert service.suggest_units("m") == [
-        "qudt:unit:GermanOnly",
         "qudt:unit:M",
+        "qudt:unit:GermanOnly",
     ]
 
 
@@ -123,3 +123,32 @@ def test_get_unit_normalizes_whitespace():
         "name": "Spaced unit",
         "description": "First part, second part.",
     }
+
+RANKING_TTL = b"""
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+unit:KiloM a qudt:Unit ;
+    rdfs:label "Kilometre"@en .
+
+unit:M a qudt:Unit ;
+    rdfs:label "Metre"@en .
+
+unit:M-PER-SEC a qudt:Unit ;
+    rdfs:label "Metre per Second"@en .
+
+unit:MilliM a qudt:Unit ;
+    rdfs:label "Millimetre"@en .
+"""
+
+
+def test_suggest_units_ranks_exact_label_match_first():
+    service = QUDTService(client=FakeClient(RANKING_TTL))
+
+    assert service.suggest_units("metre") == [
+        "qudt:unit:M",
+        "qudt:unit:M-PER-SEC",
+        "qudt:unit:KiloM",
+        "qudt:unit:MilliM",
+    ]

@@ -119,3 +119,22 @@ def test_suggest_classes_returns_empty_list_without_match():
 
     assert service.suggest_classes("Wire") == []
     assert service.suggest_classes("   ") == []
+
+RANKING_TTL = b"""
+@prefix vec: <http://www.prostep.org/ontologies/ecad/2024/03/vec#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+vec:GeneralWire a owl:Class .
+vec:Wire a owl:Class .
+vec:WireElement a owl:Class .
+"""
+
+
+def test_suggest_classes_ranks_exact_before_prefix_before_substring():
+    service = VECService(client=FakeClient(RANKING_TTL))
+
+    assert service.suggest_classes("wire") == [
+        "vec:Wire",
+        "vec:WireElement",
+        "vec:GeneralWire",
+    ]

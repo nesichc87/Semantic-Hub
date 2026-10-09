@@ -2,6 +2,7 @@ from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF, RDFS
 
 from app.sources.qudt.client import QUDTClient
+from app.sources.ranking import rank_matches
 
 
 QUDT_SCHEMA_NAMESPACE = "http://qudt.org/schema/qudt/"
@@ -65,37 +66,33 @@ class QUDTService:
         Suggest QUDT unit identifiers matching the query.
 
         Matches the local name and English or untagged labels,
-        case-insensitively. Resolution itself remains case-sensitive
-        and exact.
+        case-insensitively. Results are ranked: exact matches first,
+        then prefix matches, then substring matches. Resolution itself
+        remains case-sensitive and exact.
         """
 
-        search = query.strip().lower()
-
-        if not search:
+        if not query.strip():
             return []
 
         graph = self._get_graph()
-        matches = set()
+        candidates = {}
 
         for unit in graph.subjects(RDF.type, QUDT_UNIT):
             if not isinstance(unit, URIRef) or not str(unit).startswith(
-                QUDT_UNIT_NAMESPACE
+                    QUDT_UNIT_NAMESPACE
             ):
                 continue
 
             local_name = str(unit)[len(QUDT_UNIT_NAMESPACE):]
-            labels = (
+            labels = [
                 str(o)
                 for o in graph.objects(unit, RDFS.label)
                 if isinstance(o, Literal) and o.language in (None, "en")
-            )
+            ]
 
-            if search in local_name.lower() or any(
-                search in label.lower() for label in labels
-            ):
-                matches.add(UNIT_PREFIX + local_name)
+            candidates[UNIT_PREFIX + local_name] = [local_name, *labels]
 
-        return sorted(matches)
+        return rank_matches(query, candidates)
 
     @staticmethod
     def _local_name(semantic_id: str) -> str:

@@ -2,6 +2,7 @@ from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import OWL, RDF, RDFS
 
 from app.sources.vec.client import VECClient
+from app.sources.ranking import rank_matches
 
 
 VEC_NAMESPACE = "http://www.prostep.org/ontologies/ecad/2024/03/vec#"
@@ -69,24 +70,23 @@ class VECService:
         """
         Suggest VEC class identifiers matching the query.
 
-        Matching is case-insensitive. Resolution itself remains
-        case-sensitive and exact.
+        Matching is case-insensitive on the class name. Results are
+        ranked: exact matches first, then prefix matches, then substring
+        matches. Resolution itself remains case-sensitive and exact.
         """
 
-        search = query.strip().lower()
-
-        if not search:
+        if not query.strip():
             return []
 
         graph = self._get_graph()
 
-        return sorted(
-            self._compact(str(cls))
+        candidates = {
+            self._compact(str(cls)): [str(cls)[len(VEC_NAMESPACE):]]
             for cls in graph.subjects(RDF.type, OWL.Class)
-            if isinstance(cls, URIRef)
-            and str(cls).startswith(VEC_NAMESPACE)
-            and search in str(cls)[len(VEC_NAMESPACE):].lower()
-        )
+            if isinstance(cls, URIRef) and str(cls).startswith(VEC_NAMESPACE)
+        }
+
+        return rank_matches(query, candidates)
 
     @staticmethod
     def _class_hierarchy(graph: Graph, cls: URIRef) -> list[URIRef]:

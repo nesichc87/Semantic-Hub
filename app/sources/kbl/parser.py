@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+from app.sources.ranking import rank_matches
 
 
 XS_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
@@ -338,34 +339,28 @@ class KBLParser:
         return "unknown"
 
     def suggest_types(
-        self,
-        root: ET.Element,
-        query: str,
+            self,
+            root: ET.Element,
+            query: str,
     ) -> list[str]:
         """
-        Return KBL type identifiers whose names contain the query.
+        Return KBL type identifiers whose names match the query.
 
-        Matching is case-insensitive. Only named XSD simpleTypes
-        and complexTypes are considered.
+        Only named top-level simpleTypes and complexTypes are considered.
+        Matching is case-insensitive. Results are ranked: exact matches
+        first, then prefix matches, then substring matches.
         """
 
-        normalized_query = query.strip().lower()
-
-        if not normalized_query:
+        if not query.strip():
             return []
 
-        matches = []
+        candidates = {}
 
-        for complex_type in root.findall("xs:complexType", XS):
-            name = complex_type.get("name")
+        for tag in ("xs:complexType", "xs:simpleType"):
+            for type_element in root.findall(tag, XS):
+                name = type_element.get("name")
 
-            if name and normalized_query in name.lower():
-                matches.append(f"kbl:{name}")
+                if name:
+                    candidates[f"kbl:{name}"] = [name]
 
-        for simple_type in root.findall("xs:simpleType", XS):
-            name = simple_type.get("name")
-
-            if name and normalized_query in name.lower():
-                matches.append(f"kbl:{name}")
-
-        return sorted(matches)
+        return rank_matches(query, candidates)

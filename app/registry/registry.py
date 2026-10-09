@@ -18,6 +18,10 @@ class SemanticRegistry:
     def suggest(self, query: str) -> list[str]:
         """
         Collect semantic identifier suggestions from all registered sources.
+
+        Results are returned in registration order of the sources.
+        The order within each source is kept, so sources can rank
+        their own suggestions.
         """
 
         results = []
@@ -25,4 +29,4 @@ class SemanticRegistry:
         for source in self._sources:
             results.extend(source.suggest(query))
 
-        return sorted(results)
+        return results

@@ -45,7 +45,8 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
 - Output formats:
   - `original` – source-oriented, normalized representation of the internal model (not an unchanged KBL serialization)
   - `iec61360` – minimal IEC 61360-oriented representation with partial data type mapping (not a complete or conformant IEC 61360 implementation)
-- Suggestion endpoint for semantic identifiers
+- Suggestion endpoint for semantic identifiers:
+  - ranked results per source: exact matches first, then prefix matches, then substring matches
 - Automated tests (pytest) for the semantic model, KBL and VEC resolution, data type mapping, formatters and API
 
 ### Planned
@@ -184,6 +185,7 @@ Semantic-Hub/
 │   ├── sources/
 │   │   ├── base.py                 # common semantic source interface
 │   │   ├── mock.py                 # mock source (development / testing)
+│   │   ├── ranking.py              # ranking of suggestions (exact, prefix, substring)
 │   │   ├──kbl/
 │   │   │   ├── client.py           # loading of the KBL XSD
 │   │   │   ├── parser.py           # XSD parsing
@@ -269,7 +271,7 @@ GET /api/resolve/qudt%3Aunit%3AM?format=original
 - Only units can be resolved. Quantity kinds are not supported yet.
 - Unit values such as symbol, UCUM code, IEC 61360 code, quantity kinds or conversion multiplier are not mapped yet. Units are returned as concepts without properties and with `data_type: null`.
 - Only English or untagged literals are used for names and descriptions.
-- Suggestions can return many results (e.g. 766 units for `metre`), sorted alphabetically without ranking.
+- Suggestions can return many results (e.g. 766 units for `metre`); the number of results is not limited yet. Results are ranked, so `qudt:unit:M` comes first for `metre` (exact match of its English label).
 - The vocabulary (about 4 MB) is loaded remotely on first use and then kept in memory for the lifetime of the process. Parsing took about 2.3 s in a local test.
 - This is not a complete QUDT implementation.
 
@@ -374,7 +376,7 @@ registry.register(source)
 
 The Registry uses `can_resolve()` to determine which source is able to resolve a given semantic identifier.
 
-For suggestions, the Registry delegates the search query to all registered sources and aggregates their results.
+For suggestions, the Registry delegates the search query to all registered sources and returns their results in registration order of the sources. The order within each source is kept, so each source ranks its own suggestions.
 
 This provides an extensible mechanism for adding additional semantic resources.
 
@@ -482,6 +484,8 @@ GET /api/suggest?query={text}
 ```
 
 Searches all registered semantic sources for semantic identifiers matching the query. `query` is required and must not be empty.
+
+Matching is case-insensitive. Within each source, results are ranked by their best matching search text: exact matches first, then prefix matches, then substring matches, each sorted alphabetically. Search texts are the type or class name (KBL, VEC) and, for QUDT, the unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT); there is no ranking across sources.
 
 Response:
 
