@@ -20,3 +20,10 @@ def test_ui_without_trailing_slash_redirects():
 
     assert response.status_code == 307
     assert response.headers["location"].endswith("/ui/")
+
+
+def test_ui_serves_stylesheet():
+    response = client.get("/ui/ui.css")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/css")
