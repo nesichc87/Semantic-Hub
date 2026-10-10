@@ -30,6 +30,9 @@ function showOnly(state) {
   $("notfound").hidden = state !== "notfound";
   $("concept").hidden = state !== "found";
   $("views").hidden = state !== "found";
+  if (state !== "found") {
+    $("props").hidden = true;
+  }
 }
 
 function setBusy(busy) {
@@ -91,6 +94,50 @@ function updateFlow(semanticId, original) {
     : "name · description · properties";
 }
 
+function cell(value, mapped) {
+  const td = document.createElement("td");
+  if (value === null || value === undefined) {
+    td.appendChild(nullValue());
+  } else if (mapped) {
+    const span = document.createElement("span");
+    span.className = "mapped";
+    span.textContent = String(value);
+    td.appendChild(span);
+  } else {
+    td.textContent = String(value);
+  }
+  return td;
+}
+
+function renderProperties(original, iec) {
+  const properties = Array.isArray(original.properties) ? original.properties : [];
+  const iecById = new Map(
+    (Array.isArray(iec.properties) ? iec.properties : []).map((p) => [p.semantic_id, p])
+  );
+
+  const body = $("props-body");
+  body.replaceChildren();
+  properties.forEach((property) => {
+    const iecProperty = iecById.get(property.semantic_id) || {};
+    const arrow = document.createElement("td");
+    arrow.className = "arrow";
+    arrow.textContent = "→";
+    const row = document.createElement("tr");
+    row.append(
+      cell(property.semantic_id),
+      cell(property.data_type),
+      arrow,
+      cell(iecProperty.data_type, true),
+      cell(property.unit),
+      cell((property.provenance || {}).source_reference),
+    );
+    body.appendChild(row);
+  });
+
+  $("props-count").textContent = "(" + properties.length + ")";
+  $("props").hidden = properties.length === 0;
+}
+
 function renderFound(original, iec) {
   const hints = NULL_HINTS[original.source] || {};
   const source = SOURCES[original.source];
@@ -120,7 +167,8 @@ function renderFound(original, iec) {
     ["properties", propertyCount(iec.properties)],
   ]);
 
-  showOnly("found");
+    showOnly("found");
+  renderProperties(original, iec);
 }
 
 function renderNotFound(semanticId, status) {
