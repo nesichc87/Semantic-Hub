@@ -129,7 +129,6 @@ function renderProperties(original, iec) {
       arrow,
       cell(iecProperty.data_type, true),
       cell(property.unit),
-      cell((property.provenance || {}).source_reference),
     );
     body.appendChild(row);
   });
