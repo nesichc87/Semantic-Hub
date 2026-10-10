@@ -11,6 +11,7 @@ const SOURCES = {
 const NULL_HINTS = {
   kbl: { description: "Das KBL-XSD enthält keine fachlichen Definitionen.", definition: "Das KBL-XSD enthält keine fachlichen Definitionen." },
 };
+const PROSE_KEYS = new Set(["description", "definition"]);
 
 const $ = (id) => document.getElementById(id);
 
@@ -62,7 +63,10 @@ function fillList(list, rows) {
   rows.forEach(([key, value, hint]) => {
     const term = document.createElement("dt");
     term.textContent = key;
-    const description = document.createElement("dd");
+     const description = document.createElement("dd");
+    if (PROSE_KEYS.has(key)) {
+      description.classList.add("prose");
+    }
     if (value === null || value === undefined) {
       description.appendChild(nullValue(hint));
     } else {
