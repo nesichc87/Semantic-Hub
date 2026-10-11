@@ -80,7 +80,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .search { display: grid; gap: 14px; }
 .field { position: relative; }
 .field label { display: block; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
-.inputrow { display: flex; gap: 10px; }
+.inputrow { display: flex; gap: 10px; position: relative; }
 .inputrow input {
   flex: 1; min-width: 0;
   font: inherit; font-family: var(--font-mono); font-size: clamp(1.4rem, 1.6vw, 2rem);
@@ -97,7 +97,9 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .hint { margin: 8px 0 0; font-size: 0.85em; color: var(--muted); }
 
 .suggest {
-  margin-top: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 10;
+  max-height: 70vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 14px 34px -18px rgba(13, 27, 42, 0.45); overflow: hidden;
 }
 .suggest .group { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
