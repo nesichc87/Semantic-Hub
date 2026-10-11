@@ -101,6 +101,10 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
   box-shadow: 0 14px 34px -18px rgba(13, 27, 42, 0.45); overflow: hidden;
 }
 .suggest .group { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+.suggest .group { background: color-mix(in srgb, var(--c, var(--line)) 8%, var(--surface)); }
+.suggest .group.kbl { --c: var(--kbl); }
+.suggest .group.vec { --c: var(--vec); }
+.suggest .group.qudt { --c: var(--qudt); }
 .suggest .count { font-size: 0.8em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .suggest ol { list-style: none; margin: 0; padding: 6px 0; }
 .suggest li { padding: 8px 20px; font-family: var(--font-mono); font-size: 0.95em; cursor: pointer; }

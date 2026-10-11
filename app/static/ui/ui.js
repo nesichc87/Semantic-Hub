@@ -20,6 +20,12 @@ const resolveButton = $("resolve-btn");
 const exampleButtons = Array.from(document.querySelectorAll(".examples button"));
 
 let requestCounter = 0;
+const SUGGEST_LIMIT = 5;
+const SUGGEST_MIN_CHARS = 2;
+const SUGGEST_DELAY_MS = 250;
+
+let suggestCounter = 0;
+let suggestTimer = null;
 
 function resolveUrl(semanticId, format) {
   return "/api/resolve/" + encodeURIComponent(semanticId) + "?format=" + format;
@@ -180,11 +186,107 @@ function renderNotFound(semanticId, status) {
   showOnly("notfound");
 }
 
+function sourceOf(semanticId) {
+  const index = semanticId.indexOf(":");
+  return index > 0 ? semanticId.slice(0, index) : "";
+}
+
+function groupBySource(ids) {
+  const groups = new Map();
+  ids.forEach((id) => {
+    const source = sourceOf(id);
+    if (!groups.has(source)) {
+      groups.set(source, []);
+    }
+    groups.get(source).push(id);
+  });
+  return groups;
+}
+
+function hideSuggest() {
+  suggestCounter++;
+  clearTimeout(suggestTimer);
+  const box = $("suggest");
+  box.hidden = true;
+  box.replaceChildren();
+}
+
+function renderSuggest(query, ids) {
+  const box = $("suggest");
+  box.replaceChildren();
+
+  if (ids.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "more";
+    empty.textContent = "Keine Vorschläge für „" + query + "“.";
+    box.appendChild(empty);
+    box.hidden = false;
+    return;
+  }
+
+  groupBySource(ids).forEach((list, source) => {
+    const header = document.createElement("div");
+    header.className = "group " + source;
+    const chip = document.createElement("span");
+    chip.className = "src " + source;
+    chip.textContent = SOURCES[source] ? SOURCES[source].label : source;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = list.length + " Treffer" + (list.length > SUGGEST_LIMIT ? " · " + SUGGEST_LIMIT + " angezeigt" : "");
+    header.append(chip, count);
+
+    const items = document.createElement("ol");
+    list.slice(0, SUGGEST_LIMIT).forEach((id) => {
+      const item = document.createElement("li");
+      item.setAttribute("role", "option");
+      item.textContent = id;
+      item.addEventListener("click", () => resolve(id));
+      items.appendChild(item);
+    });
+
+    box.append(header, items);
+
+    if (list.length > SUGGEST_LIMIT) {
+      const more = document.createElement("div");
+      more.className = "more";
+      more.textContent = (list.length - SUGGEST_LIMIT) + " weitere · Eingabe verfeinern";
+      box.appendChild(more);
+    }
+  });
+
+  box.hidden = false;
+}
+
+async function suggest(query) {
+  const thisRequest = ++suggestCounter;
+  try {
+    const response = await fetch("/api/suggest?query=" + encodeURIComponent(query));
+    if (thisRequest !== suggestCounter) {
+      return;
+    }
+    if (!response.ok) {
+      hideSuggest();
+      return;
+    }
+    const body = await response.json();
+    if (thisRequest !== suggestCounter) {
+      return;
+    }
+    renderSuggest(query, body.results);
+  } catch (error) {
+    if (thisRequest === suggestCounter) {
+      hideSuggest();
+    }
+    console.error(error);
+  }
+}
+
 async function resolve(semanticId) {
   semanticId = semanticId.trim();
   if (!semanticId) {
     return;
   }
+  hideSuggest();
 
   const thisRequest = ++requestCounter;
   input.value = semanticId;
@@ -228,6 +330,24 @@ resolveButton.addEventListener("click", () => resolve(input.value));
 input.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     resolve(input.value);
+  } else if (event.key === "Escape") {
+    hideSuggest();
+  }
+});
+
+input.addEventListener("input", () => {
+  clearTimeout(suggestTimer);
+  const query = input.value.trim();
+  if (query.length < SUGGEST_MIN_CHARS) {
+    hideSuggest();
+    return;
+  }
+  suggestTimer = setTimeout(() => suggest(query), SUGGEST_DELAY_MS);
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".field")) {
+    hideSuggest();
   }
 });
 
