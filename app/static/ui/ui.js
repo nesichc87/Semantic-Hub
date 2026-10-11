@@ -281,6 +281,43 @@ async function suggest(query) {
   }
 }
 
+async function showCaseVariant(semanticId, thisRequest) {
+  const colon = semanticId.lastIndexOf(":");
+  if (colon <= 0 || colon === semanticId.length - 1) {
+    return;
+  }
+  const query = semanticId.slice(colon + 1);
+  try {
+    const response = await fetch("/api/suggest?query=" + encodeURIComponent(query));
+    if (!response.ok || thisRequest !== requestCounter) {
+      return;
+    }
+    const ids = (await response.json()).results;
+    if (thisRequest !== requestCounter) {
+      return;
+    }
+    const wanted = semanticId.toLowerCase();
+    const match = ids.find((id) => id !== semanticId && id.toLowerCase() === wanted);
+    if (!match) {
+      return;
+    }
+
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "linkish";
+    link.textContent = match;
+    link.addEventListener("click", () => resolve(match));
+    const note = document.createElement("span");
+    note.textContent = " (gleiche ID bis auf Groß- und Kleinschreibung, gefunden über suggest)";
+
+    const line = $("didyoumean");
+    line.replaceChildren("Meintest du ", link, "?", note);
+    line.hidden = false;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function resolve(semanticId) {
   semanticId = semanticId.trim();
   if (!semanticId) {
@@ -302,8 +339,12 @@ async function resolve(semanticId) {
     if (thisRequest !== requestCounter) {
       return;
     }
-    if (!originalResponse.ok || !iecResponse.ok) {
-      renderNotFound(semanticId, originalResponse.ok ? iecResponse.status : originalResponse.status);
+        if (!originalResponse.ok || !iecResponse.ok) {
+      const status = originalResponse.ok ? iecResponse.status : originalResponse.status;
+      renderNotFound(semanticId, status);
+      if (status === 404) {
+        showCaseVariant(semanticId, thisRequest);
+      }
       return;
     }
     const original = (await originalResponse.json()).result;
