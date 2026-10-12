@@ -20,17 +20,6 @@ class KBLSemanticSource(SemanticSource):
 
         return map_kbl_type(semantic_id, result)
 
-        return SemanticConcept(
-            semantic_id=semantic_id,
-            source="kbl",
-            name=semantic_id.split(":", 1)[-1],
-            properties=properties,
-            provenance={
-                "source": "kbl",
-                "source_reference": semantic_id,
-            },
-        )
-
     def suggest(self, query: str) -> list[str]:
         """
         Suggest KBL semantic identifiers matching the query.
