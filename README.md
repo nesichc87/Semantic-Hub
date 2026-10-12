@@ -215,6 +215,9 @@ Semantic-Hub/
 │   ├── config.py                   # source URL configuration via environment variables
 │   └── main.py                     # FastAPI application
 │
+├── scripts/
+│   └── start-demo.ps1              # offline start with local sources and warm-up
+│
 ├── tests/                          # pytest test suite
 ├── requirements.txt
 └── README.md
@@ -590,6 +593,24 @@ uvicorn app.main:app
 ```
 
 A local copy must have the same format as the online source (XSD for KBL, Turtle for VEC and QUDT). Local copies of source data are not part of this repository; the licenses of the respective sources apply (see Semantic Sources).
+
+### Running the demo offline
+
+`scripts/start-demo.ps1` (Windows PowerShell) starts the application with local copies of all three sources and loads them before the first request, so that the first visitor does not have to wait for the source data to be parsed.
+
+The script expects a folder containing `kbl2.5-sr1.xsd`, `vec-2.2.0-ontology.ttl` and `qudt-unit.ttl`. It
+
+1. checks that the three files exist and sets the source URL variables to the corresponding `file://` URLs,
+2. refuses to start if a server is already running on the port,
+3. starts uvicorn in a separate window, using the Python interpreter from `.venv`,
+4. waits until `/health` responds and resolves one identifier per source,
+5. opens the demo page in the browser.
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\start-demo.ps1 -SourceDir <folder with local copies>
+```
+
+`-Port` selects a different port (default: 8000). `-ExecutionPolicy Bypass` applies to this call only and is needed if running scripts is disabled on the machine.
 
 ---
 
