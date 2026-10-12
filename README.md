@@ -47,6 +47,11 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
   - `iec61360` – minimal IEC 61360-oriented representation with partial data type mapping (not a complete or conformant IEC 61360 implementation)
 - Suggestion endpoint for semantic identifiers:
   - ranked results per source: exact matches first, then prefix matches, then substring matches
+- Demo page under `/ui/` (static HTML, CSS and JavaScript served by FastAPI, no external dependencies or build step):
+  - search field with live suggestions grouped by source
+  - exact resolution via button or Enter, including the 404 case with a hint for IDs that differ only in letter case
+  - `original` and `iec61360` output side by side, with a property table comparing source and IEC 61360 data types
+  - example identifiers for KBL, VEC and QUDT
 - Automated tests (pytest) for the semantic model, KBL and VEC resolution, data type mapping, formatters and API
 
 ### Planned
@@ -57,7 +62,6 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
 - Review and extension of the IEC 61360-oriented output
 - Persistent caching of source data (approach to be decided, e.g. file-based or database-backed)
 - AAS-compatible semantic information
-- Graphical user interface (demo page under `/ui/`, in progress)
 - Docker-based deployment
 
 ---
@@ -201,6 +205,13 @@ Semantic-Hub/
 │   │   │   ├── service.py          # resolution and search of QUDT units
 │   │   │   ├── mapper.py           # maps resolved units to the internal model
 │   │   │   └── source.py           # QUDT semantic source
+│   │
+│   ├── static/
+│   │   └── ui/                     # demo page, served under /ui/
+│   │       ├── index.html          # page structure
+│   │       ├── ui.css              # colour and font tokens, light and dark theme
+│   │       └── ui.js               # suggestions, resolution, property table
+│   │
 │   ├── config.py                   # source URL configuration via environment variables
 │   └── main.py                     # FastAPI application
 │
@@ -454,7 +465,7 @@ Returns basic application information.
 GET /ui/
 ```
 
-Serves a static demo page (HTML, CSS and JavaScript, no external dependencies). Work in progress.
+Serves a static demo page (HTML, CSS and JavaScript, no external dependencies). While typing, it requests suggestions from `/api/suggest`. On Enter or the resolve button, it resolves the identifier exactly via `/api/resolve/{semantic_id}` and shows the `original` and `iec61360` output side by side.
 
 #### Semantic resolution
 
