@@ -19,6 +19,9 @@ from app.sources.vec.source import VECSemanticSource
 from app.sources.qudt.client import QUDTClient
 from app.sources.qudt.service import QUDTService
 from app.sources.qudt.source import QUDTSemanticSource
+from app.sources.dppo.client import DPPOClient
+from app.sources.dppo.service import DPPOService
+from app.sources.dppo.source import DPPOSemanticSource
 from app.config import source_url
 
 
@@ -77,6 +80,21 @@ qudt_service = QUDTService(client=qudt_client)
 qudt_source = QUDTSemanticSource(qudt_service)
 
 # ---------------------------------------------------------------------------
+# DPPO source configuration
+# ---------------------------------------------------------------------------
+
+DPPO_TTL_URL = source_url(
+    os.environ,
+    "SEMANTIC_HUB_DPPO_TTL_URL",
+    "https://liusemweb.github.io/"
+    "DPPO/ontology/{module}/0.1/{module}.ttl",
+)
+
+dppo_client = DPPOClient(DPPO_TTL_URL)
+dppo_service = DPPOService(client=dppo_client)
+dppo_source = DPPOSemanticSource(dppo_service)
+
+# ---------------------------------------------------------------------------
 # Semantic registry and resolver
 # ---------------------------------------------------------------------------
 
@@ -86,6 +104,7 @@ registry.register(MockSemanticSource())
 registry.register(kbl_source)
 registry.register(vec_source)
 registry.register(qudt_source)
+registry.register(dppo_source)
 
 resolver = SemanticResolver(registry)
 

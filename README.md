@@ -15,7 +15,7 @@ The implementation is developed based on the architecture and concepts described
 
 🚧 Early development / Work in progress
 
-The project is being built up incrementally. KBL (XSD-based), VEC (ontology-based) and QUDT (RDF vocabulary) are integrated as semantic sources with a limited scope.
+The project is being built up incrementally. KBL (XSD-based), VEC (ontology-based), QUDT (RDF vocabulary) and DPPO (ontology-based) are integrated as semantic sources with a limited scope.
 
 ### Currently implemented
 
@@ -40,7 +40,13 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
   - names from English or untagged labels, descriptions from plain-text or Dublin Core descriptions
   - exact, case-sensitive unit resolution
   - case-insensitive search of unit names and English labels for suggestions
-- In-memory caching of the parsed source data (KBL XSD, VEC ontology, QUDT unit vocabulary) for the lifetime of the process
+- **DPPO source (limited scope)**, based on the Digital Product Passport Ontology 0.1 (five Turtle modules):
+  - resolution of named ontology classes across the modules
+  - properties attached via `rdfs:domain`, including properties inherited via `rdfs:subClassOf`
+  - definitions from `rdfs:comment` for classes and properties
+  - exact, case-sensitive class resolution
+  - case-insensitive search of class names for suggestions
+- In-memory caching of the parsed source data (KBL XSD, VEC ontology, QUDT unit vocabulary, DPPO modules) for the lifetime of the process
 - Internal semantic model (concepts, properties, source provenance)
 - Output formats:
   - `original` – source-oriented, normalized representation of the internal model (not an unchanged KBL serialization)
@@ -205,6 +211,11 @@ Semantic-Hub/
 │   │   │   ├── service.py          # resolution and search of QUDT units
 │   │   │   ├── mapper.py           # maps resolved units to the internal model
 │   │   │   └── source.py           # QUDT semantic source
+│   │   ├── dppo/
+│   │   │   ├── client.py           # loading of the DPPO modules (Turtle) from a URL template
+│   │   │   ├── service.py          # resolution and search of DPPO classes across modules
+│   │   │   ├── mapper.py           # maps resolved classes to the internal model
+│   │   │   └── source.py           # DPPO semantic source
 │   │
 │   ├── static/
 │   │   └── ui/                     # demo page, served under /ui/
@@ -325,6 +336,34 @@ An earlier student prototype mapping the VEC ontology to IEC 61360 served as a r
 ### ECLASS (under evaluation)
 
 The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
+
+### DPPO (implemented, limited scope)
+
+DPPO (Digital Product Passport Ontology) is integrated via its OWL ontology, which is published as five Turtle modules (`dpp-odp`, `dpp-core`, `dpp-info`, `dpp-comp`, `dpp-prov`). All modules are loaded into one RDF graph, following the same pattern as VEC. The integration was checked against version 0.1 (26 classes). According to its authors, the ontology is under development and may still change considerably.
+
+Semantic identifiers use the form `dppo:<module>:<LocalName>`, e.g. `dppo:dpp-core:ComponentDPP` for `http://w3id.org/dppo/ontology/dpp-core/ComponentDPP`. Properties use the same form, e.g. `dppo:dpp-odp:describes`.
+
+**Supported:**
+
+- named OWL classes in the five DPPO modules
+- properties attached via `rdfs:domain`, including inherited properties via `rdfs:subClassOf` across modules; inherited properties come first
+- names from the local name of the class or property, as for VEC
+- definitions from `rdfs:comment` for classes and properties (English or language-neutral comments preferred)
+- data types from `rdfs:range`; XSD ranges are normalized to the `xs:` prefix
+- exact, case-sensitive class resolution
+- case-insensitive search of class names for suggestions
+- source provenance; for properties, `source_reference` points to the property resource itself
+
+**Current limitations:**
+
+- Only classes can be resolved.
+- Properties whose domain is a blank node (e.g. `owl:unionOf`) are not included.
+- IRIs that do not fit the identifier scheme (version 0.1 contains a few IRIs with a version segment, e.g. `.../dpp-info/0.1/CompositionInformation`) are not resolvable and not suggested.
+- In version 0.1, most properties have no `rdfs:range`, so they are returned with `data_type: null`.
+- The modules are loaded remotely on first use and then kept in memory for the lifetime of the process.
+- This is not a complete DPPO implementation.
+
+**License:** not yet clarified. The ontology files refer to a license file that could not be retrieved. No DPPO data is included in this repository.
 
 ---
 
@@ -507,7 +546,7 @@ GET /api/suggest?query={text}
 
 Searches all registered semantic sources for semantic identifiers matching the query. `query` is required and must not be empty.
 
-Matching is case-insensitive. Within each source, results are ranked by their best matching search text: exact matches first, then prefix matches, then substring matches, each sorted alphabetically. Search texts are the type or class name (KBL, VEC) and, for QUDT, the unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT); there is no ranking across sources.
+Matching is case-insensitive. Within each source, results are ranked by their best matching search text: exact matches first, then prefix matches, then substring matches, each sorted alphabetically. Search texts are the type or class name (KBL, VEC) and, for QUDT, theSearch texts are the type or class name (KBL, VEC, DPPO) and, for QUDT, the unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT, DPPO); there is no ranking across sources. unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT); there is no ranking across sources.
 
 Response:
 
@@ -571,7 +610,7 @@ Run the tests:
 python -m pytest
 ```
 
-Note: The KBL, VEC and QUDT sources load their source data (KBL XSD, VEC ontology, QUDT unit vocabulary) from the prostep ECAD wiki and qudt.org on first use. Resolving KBL, VEC or QUDT identifiers therefore requires network access; KBL-related tests may require it as well. The VEC and QUDT tests use small self-written vocabularies and run without network access.
+Note: The KBL, VEC, QUDT and DPPO sources load their source data (KBL XSD, VEC ontology, QUDT unit vocabulary, DPPO modules) from the prostep ECAD wiki, qudt.org and liusemweb.github.io on first use. Resolving these identifiers therefore requires network access; KBL-related tests may require it as well. The VEC, QUDT and DPPO tests use small self-written vocabularies and run without network access.
 
 To run without network access, local copies of the source data can be configured (see below).
 
@@ -584,8 +623,10 @@ The source URLs can be overridden with environment variables. If a variable is n
 | `SEMANTIC_HUB_KBL_XSD_URL` | KBL XSD | `https://ecad-wiki.prostep.org/specifications/kbl/v25-sr1/kbl2.5-sr1.xsd` |
 | `SEMANTIC_HUB_VEC_TTL_URL` | VEC ontology | `https://ecad-wiki.prostep.org/specifications/vec/v220/vec-2.2.0-ontology.ttl` |
 | `SEMANTIC_HUB_QUDT_UNIT_TTL_URL` | QUDT unit vocabulary | `https://qudt.org/vocab/unit/` |
+| `SEMANTIC_HUB_DPPO_TTL_URL` | DPPO modules | `https://liusemweb.github.io/DPPO/ontology/{module}/0.1/{module}.ttl` |
 
 The variables are read when the application starts, so they must be set before the server is started. Local copies can be configured as `file://` URLs, e.g. in PowerShell:
+The DPPO URL is a template: `{module}` is replaced by each module name. A local copy can therefore be configured as e.g. `file:///C:/sources/dppo/{module}.ttl`.
 
 ```
 $env:SEMANTIC_HUB_VEC_TTL_URL = "file:///C:/sources/vec-2.2.0-ontology.ttl"
