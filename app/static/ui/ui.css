@@ -200,3 +200,6 @@ tr:last-child td { border-bottom: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .suggest li, .examples button { transition: background-color 120ms ease; }
 }
+.toplinks { margin-top: 6px; font-size: 0.9em; }
+.toplinks a { color: var(--accent); text-decoration: none; }
+.toplinks a:hover, .toplinks a:focus-visible { text-decoration: underline; }

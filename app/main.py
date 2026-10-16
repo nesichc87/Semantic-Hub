@@ -16,6 +16,8 @@ heterogeneous semantic sources used in Industry 4.0.
 It resolves semantic identifiers, suggests matching semantic
 concepts and provides different representations of semantic
 information while preserving source provenance.
+
+[Open the demo page](/ui/)
 """,
     version="0.1.0",
 )
