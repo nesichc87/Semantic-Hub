@@ -24,6 +24,7 @@
       <span class="src kbl">KBL <small>XSD 2.5 SR-1</small></span>
       <span class="src vec">VEC <small>Ontologie 2.2.0</small></span>
       <span class="src qudt">QUDT <small>Units</small></span>
+      <span class="src dppo">DPPO <small>Ontologie 0.1</small></span>
     </div>
   </header>
 
@@ -42,13 +43,14 @@
       <button type="button" class="kbl" data-id="kbl:Component" aria-pressed="false">kbl:Component</button>
       <button type="button" class="vec" data-id="vec:PartVersion" aria-pressed="false">vec:PartVersion</button>
       <button type="button" class="qudt" data-id="qudt:unit:M" aria-pressed="false">qudt:unit:M</button>
+      <button type="button" class="dppo" data-id="dppo:dpp-core:ComponentDPP" aria-pressed="false">dppo:dpp-core:ComponentDPP</button>
       <button type="button" class="err" data-id="kbl:component" aria-pressed="false">kbl:component <small>404</small></button>
     </div>
   </section>
 
   <section class="flow" aria-label="Weg der Anfrage">
     <div class="step"><div class="n">1 · Anfrage</div><div class="t">REST</div><div class="d" id="flow-request">GET /api/resolve/{semantic_id}</div></div>
-    <div class="step"><div class="n">2 · Quelle</div><div class="t" id="flow-source">KBL · VEC · QUDT</div><div class="d" id="flow-source-detail">XSD bzw. Ontologie</div></div>
+    <div class="step"><div class="n">2 · Quelle</div><div class="t" id="flow-source">KBL · VEC · QUDT · DPPO  </div><div class="d" id="flow-source-detail">XSD bzw. Ontologie</div></div>
     <div class="step"><div class="n">3 · Internes Modell</div><div class="t">SemanticConcept</div><div class="d" id="flow-model">name · description · properties</div></div>
     <div class="step"><div class="n">4 · Ausgabe</div><div class="t">IEC 61360</div><div class="d">preferred_name · definition · data_type</div></div>
   </section>
@@ -107,7 +109,7 @@
   <footer class="notes">
     <div><strong>null heißt: nicht in der Quelle</strong>Der Hub füllt keine Lücken mit Vermutungen. Typen ohne eindeutige Zuordnung bleiben als Referenz erhalten.</div>
     <div><strong>Herkunft bleibt sichtbar</strong>Jedes Konzept und jede Property trägt ihre Quelle.</div>
-    <div><strong>Begrenzter Umfang</strong>KBL, VEC und QUDT sind angebunden, nicht vollständig abgebildet.</div>
+    <div><strong>Begrenzter Umfang</strong>KBL, VEC , QUDT und DPPO  sind angebunden, nicht vollständig abgebildet.</div>
   </footer>
 
 </div>

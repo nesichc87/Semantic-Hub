@@ -5,6 +5,7 @@ const SOURCES = {
   kbl: { label: "KBL", title: "KBL-Schema", detail: "XSD 2.5 SR-1" },
   vec: { label: "VEC", title: "VEC-Ontologie", detail: "OWL 2.2.0 (Turtle)" },
   qudt: { label: "QUDT", title: "QUDT Units", detail: "Vokabular (Turtle)" },
+  dppo: { label: "DPPO", title: "Digital Product Passport Ontology", detail: "Ontologie 0.1 (5 Module)" },
   mock: { label: "Mock", title: "Mock-Quelle", detail: "nur Entwicklung" },
 };
 
@@ -93,7 +94,7 @@ function propertyCount(properties) {
 function updateFlow(semanticId, original) {
   $("flow-request").textContent = "GET /api/resolve/" + semanticId;
   const source = SOURCES[original ? original.source : ""];
-  $("flow-source").textContent = source ? source.title : "KBL · VEC · QUDT";
+  $("flow-source").textContent = source ? source.title : "KBL · VEC · QUDT · DPPO";
   $("flow-source-detail").textContent = source ? source.detail : "XSD bzw. Ontologie";
   $("flow-model").textContent = original
     ? propertyCount(original.properties).replace("Einträge", "Properties").replace("Eintrag", "Property")
