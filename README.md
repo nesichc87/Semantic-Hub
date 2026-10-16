@@ -57,7 +57,10 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
   - search field with live suggestions grouped by source
   - exact resolution via button or Enter, including the 404 case with a hint for IDs that differ only in letter case
   - `original` and `iec61360` output side by side, with a property table comparing source and IEC 61360 data types
-  - example identifiers for KBL, VEC and QUDT
+    - example identifiers for KBL, VEC, QUDT and DPPO
+  - a request line showing the current call; clearing the search field resets the page
+  - German and English user interface, switchable on the page; all texts are kept in `app/static/ui/i18n.js`, so further languages can be added there
+  - links to the Swagger UI and back
 - Automated tests (pytest) for the semantic model, KBL and VEC resolution, data type mapping, formatters and API
 
 ### Planned
@@ -218,10 +221,12 @@ Semantic-Hub/
 │   │   │   └── source.py           # DPPO semantic source
 │   │
 │   ├── static/
+│   │   ├── swagger/                # local copy of Swagger UI (swagger-ui-dist 5.17.14, Apache License 2.0)
 │   │   └── ui/                     # demo page, served under /ui/
 │   │       ├── index.html          # page structure
+│   │       ├── i18n.js             # texts per language (de, en)
 │   │       ├── ui.css              # colour and font tokens, light and dark theme
-│   │       └── ui.js               # suggestions, resolution, property table
+│   │       └── ui.js               # suggestions, resolution, property table, language switch
 │   │
 │   ├── config.py                   # source URL configuration via environment variables
 │   └── main.py                     # FastAPI application
@@ -480,8 +485,7 @@ Unsupported types are not guessed. Properties with an unsupported type are kept 
 
 The REST API is implemented using FastAPI.
 
-Swagger UI: `/docs`
-OpenAPI specification: `/openapi.json`
+Swagger UI: `/docs` (served from a local copy of `swagger-ui-dist` 5.17.14 in `app/static/swagger/`, Apache License 2.0, so it also works without network access; it contains a link back to the demo page)
 
 ### Current endpoints
 

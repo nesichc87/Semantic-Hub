@@ -1,18 +1,18 @@
 // Semantic Hub demo page: resolve a semantic ID and show both output formats.
+// Texts come from i18n.js (TEXTS), which is loaded before this script.
 "use strict";
 
 const SOURCES = {
-  kbl: { label: "KBL", title: "KBL-Schema", detail: "XSD 2.5 SR-1" },
-  vec: { label: "VEC", title: "VEC-Ontologie", detail: "OWL 2.2.0 (Turtle)" },
-  qudt: { label: "QUDT", title: "QUDT Units", detail: "Vokabular (Turtle)" },
-  dppo: { label: "DPPO", title: "Digital Product Passport Ontology", detail: "Ontologie 0.1 (5 Module)" },
-  mock: { label: "Mock", title: "Mock-Quelle", detail: "nur Entwicklung" },
+  kbl: { label: "KBL" },
+  vec: { label: "VEC" },
+  qudt: { label: "QUDT" },
+  dppo: { label: "DPPO" },
+  mock: { label: "Mock" },
 };
 
-const NULL_HINTS = {
-  kbl: { description: "Das KBL-XSD enthält keine fachlichen Definitionen.", definition: "Das KBL-XSD enthält keine fachlichen Definitionen." },
-};
 const PROSE_KEYS = new Set(["description", "definition"]);
+const LANGUAGE_STORAGE_KEY = "semantic-hub-language";
+const DEFAULT_LANGUAGE = "de";
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,6 +28,121 @@ const SUGGEST_DELAY_MS = 250;
 let suggestCounter = 0;
 let suggestTimer = null;
 
+// What is currently shown, so it can be redrawn after a language switch
+// without a new request: null, { kind: "found", original, iec } or
+// { kind: "notfound", semanticId, status }.
+let lastRender = null;
+
+// ---------------------------------------------------------------------------
+// Texts and language
+// ---------------------------------------------------------------------------
+
+function loadLanguage() {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored && TEXTS[stored]) {
+      return stored;
+    }
+  } catch (error) {
+    // Storage may be unavailable (e.g. private mode): use the default.
+  }
+  return DEFAULT_LANGUAGE;
+}
+
+function saveLanguage(language) {
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  } catch (error) {
+    // Not critical: the choice is just not remembered.
+  }
+}
+
+let language = loadLanguage();
+
+function t(key, values) {
+  const text = (TEXTS[language] && TEXTS[language][key])
+    || TEXTS[DEFAULT_LANGUAGE][key]
+    || key;
+  return text.replace(/\{(\w+)\}/g, (match, name) =>
+    values && name in values ? String(values[name]) : match
+  );
+}
+
+// Writes a text into an element. Parts in `backticks` become <code>.
+// No innerHTML is used.
+function renderText(element, text) {
+  element.replaceChildren();
+  text.split("`").forEach((part, index) => {
+    if (!part) {
+      return;
+    }
+    if (index % 2 === 1) {
+      const code = document.createElement("code");
+      code.textContent = part;
+      element.appendChild(code);
+    } else {
+      element.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
+function applyStaticTexts() {
+  document.documentElement.lang = language;
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    renderText(element, t(element.dataset.i18n));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.placeholder = t(element.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+}
+
+function renderLanguageSwitch() {
+  const box = $("lang-switch");
+  box.replaceChildren();
+  Object.keys(TEXTS).forEach((code) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = code.toUpperCase();
+    button.setAttribute("aria-pressed", String(code === language));
+    button.addEventListener("click", () => setLanguage(code));
+    box.appendChild(button);
+  });
+}
+
+function setLanguage(next) {
+  if (!TEXTS[next] || next === language) {
+    return;
+  }
+  language = next;
+  saveLanguage(next);
+  applyStaticTexts();
+  renderLanguageSwitch();
+  setBusy(resolveButton.disabled);
+  hideSuggest();
+  redraw();
+}
+
+function redraw() {
+  if (!lastRender) {
+    return;
+  }
+  if (lastRender.kind === "found") {
+    renderFound(lastRender.original, lastRender.iec);
+  } else {
+    renderNotFound(lastRender.semanticId, lastRender.status);
+    if (lastRender.status === 404) {
+      showCaseVariant(lastRender.semanticId, requestCounter);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
 function resolveUrl(semanticId, format) {
   return "/api/resolve/" + encodeURIComponent(semanticId) + "?format=" + format;
 }
@@ -36,9 +151,9 @@ function showOnly(state) {
   $("empty").hidden = state !== "empty";
   $("notfound").hidden = state !== "notfound";
   $("concept").hidden = state !== "found";
-   $("views").hidden = state !== "found";
+  $("views").hidden = state !== "found";
   document.querySelector(".flow").hidden = state !== "empty";
-    $("request-line").hidden = state === "empty";
+  $("request-line").hidden = state === "empty";
   if (state !== "found") {
     $("props").hidden = true;
   }
@@ -46,7 +161,7 @@ function showOnly(state) {
 
 function setBusy(busy) {
   resolveButton.disabled = busy;
-  resolveButton.textContent = busy ? "Lädt …" : "Auflösen";
+  resolveButton.textContent = busy ? t("search.busy") : t("search.resolve");
 }
 
 function markExample(semanticId) {
@@ -70,12 +185,22 @@ function nullValue(hint) {
   return fragment;
 }
 
+function nullHints(source) {
+  if (source === "kbl") {
+    return {
+      description: t("null.kbl.definition"),
+      definition: t("null.kbl.definition"),
+    };
+  }
+  return {};
+}
+
 function fillList(list, rows) {
   list.replaceChildren();
   rows.forEach(([key, value, hint]) => {
     const term = document.createElement("dt");
     term.textContent = key;
-     const description = document.createElement("dd");
+    const description = document.createElement("dd");
     if (PROSE_KEYS.has(key)) {
       description.classList.add("prose");
     }
@@ -90,7 +215,7 @@ function fillList(list, rows) {
 
 function propertyCount(properties) {
   const count = Array.isArray(properties) ? properties.length : 0;
-  return count === 1 ? "1 Eintrag" : count + " Einträge";
+  return count === 1 ? t("props.count.one") : t("props.count.many", { count });
 }
 
 function showRequest(semanticId) {
@@ -142,7 +267,8 @@ function renderProperties(original, iec) {
 }
 
 function renderFound(original, iec) {
-  const hints = NULL_HINTS[original.source] || {};
+  lastRender = { kind: "found", original, iec };
+  const hints = nullHints(original.source);
   const source = SOURCES[original.source];
 
   const chip = $("concept-source");
@@ -166,23 +292,32 @@ function renderFound(original, iec) {
     ["preferred_name", iec.preferred_name],
     ["definition", iec.definition, hints.definition],
     ["source_of_definition", iec.source_of_definition],
-    ["data_type", iec.data_type, "Kein Werttyp oder nicht eindeutig zuordenbar."],
+    ["data_type", iec.data_type, t("null.datatype")],
     ["properties", propertyCount(iec.properties)],
   ]);
 
-    showOnly("found");
+  showOnly("found");
   renderProperties(original, iec);
 }
 
+// status is an HTTP status code or "network" for a failed request.
 function renderNotFound(semanticId, status) {
+  lastRender = { kind: "notfound", semanticId, status };
+  const label = status === "network" ? t("notfound.network") : String(status);
+
   $("notfound-id").textContent = semanticId;
-  $("notfound").querySelector(".pill").textContent = "resolve · " + status;
-  $("notfound").querySelector(":scope > p").textContent = status === 404
-    ? "Diese ID gibt es nicht. resolve ist exakt und case-sensitive, der Hub rät nicht."
-    : "Die Anfrage ist fehlgeschlagen (HTTP " + status + ").";
+  $("notfound").querySelector(".pill").textContent = "resolve · " + label;
+  renderText(
+    $("notfound-text"),
+    status === 404 ? t("notfound.text") : t("notfound.failed", { status: label })
+  );
   $("didyoumean").hidden = true;
   showOnly("notfound");
 }
+
+// ---------------------------------------------------------------------------
+// Suggestions
+// ---------------------------------------------------------------------------
 
 function sourceOf(semanticId) {
   const index = semanticId.indexOf(":");
@@ -216,7 +351,7 @@ function renderSuggest(query, ids) {
   if (ids.length === 0) {
     const empty = document.createElement("div");
     empty.className = "more";
-    empty.textContent = "Keine Vorschläge für „" + query + "“.";
+    empty.textContent = t("suggest.none", { query });
     box.appendChild(empty);
     box.hidden = false;
     return;
@@ -230,7 +365,8 @@ function renderSuggest(query, ids) {
     chip.textContent = SOURCES[source] ? SOURCES[source].label : source;
     const count = document.createElement("span");
     count.className = "count";
-    count.textContent = list.length + " Treffer" + (list.length > SUGGEST_LIMIT ? " · " + SUGGEST_LIMIT + " angezeigt" : "");
+    count.textContent = t("suggest.hits", { count: list.length })
+      + (list.length > SUGGEST_LIMIT ? " · " + t("suggest.shown", { count: SUGGEST_LIMIT }) : "");
     header.append(chip, count);
 
     const items = document.createElement("ol");
@@ -247,7 +383,7 @@ function renderSuggest(query, ids) {
     if (list.length > SUGGEST_LIMIT) {
       const more = document.createElement("div");
       more.className = "more";
-      more.textContent = (list.length - SUGGEST_LIMIT) + " weitere · Eingabe verfeinern";
+      more.textContent = t("suggest.more", { count: list.length - SUGGEST_LIMIT });
       box.appendChild(more);
     }
   });
@@ -306,18 +442,24 @@ async function showCaseVariant(semanticId, thisRequest) {
     link.textContent = match;
     link.addEventListener("click", () => resolve(match));
     const note = document.createElement("span");
-    note.textContent = " (gleiche ID bis auf Groß- und Kleinschreibung, gefunden über suggest)";
+    note.textContent = " " + t("didyoumean.note");
 
+    const [before, after] = t("didyoumean.text").split("{id}");
     const line = $("didyoumean");
-    line.replaceChildren("Meintest du ", link, "?", note);
+    line.replaceChildren(before || "", link, after || "", note);
     line.hidden = false;
   } catch (error) {
     console.error(error);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Resolution and events
+// ---------------------------------------------------------------------------
+
 function resetView() {
   requestCounter++;
+  lastRender = null;
   hideSuggest();
   markExample(null);
   setBusy(false);
@@ -335,7 +477,7 @@ async function resolve(semanticId) {
   const thisRequest = ++requestCounter;
   input.value = semanticId;
   markExample(semanticId);
-    showRequest(semanticId);
+  showRequest(semanticId);
   setBusy(true);
 
   try {
@@ -346,7 +488,7 @@ async function resolve(semanticId) {
     if (thisRequest !== requestCounter) {
       return;
     }
-        if (!originalResponse.ok || !iecResponse.ok) {
+    if (!originalResponse.ok || !iecResponse.ok) {
       const status = originalResponse.ok ? iecResponse.status : originalResponse.status;
       renderNotFound(semanticId, status);
       if (status === 404) {
@@ -359,11 +501,10 @@ async function resolve(semanticId) {
     if (thisRequest !== requestCounter) {
       return;
     }
-
     renderFound(original, iec);
   } catch (error) {
     if (thisRequest === requestCounter) {
-      renderNotFound(semanticId, "Netzwerkfehler");
+      renderNotFound(semanticId, "network");
     }
     console.error(error);
   } finally {
@@ -406,3 +547,6 @@ document.addEventListener("click", (event) => {
 exampleButtons.forEach((button) => {
   button.addEventListener("click", () => resolve(button.dataset.id));
 });
+
+applyStaticTexts();
+renderLanguageSwitch();

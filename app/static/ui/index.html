@@ -1,8 +1,9 @@
 <!doctype html>
 <!--
-  Visible text on this page may be edited freely.
-  Do not change id, class or data-id attributes or the element structure:
-  ui.js and ui.css depend on them.
+  Texts of this page are maintained in i18n.js (one block per language).
+  The German texts below are only a fallback in case JavaScript is off.
+  Do not change id, class, data-id or data-i18n attributes or the element
+  structure: ui.js and ui.css depend on them.
 -->
 <html lang="de">
 <head>
@@ -10,7 +11,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Semantic Hub</title>
   <link rel="stylesheet" href="ui.css">
-    <script src="ui.js" defer></script>
+  <script src="i18n.js" defer></script>
+  <script src="ui.js" defer></script>
 </head>
 <body>
 <div class="stage">
@@ -18,29 +20,32 @@
   <header class="top">
     <div class="brand">
       <h1>Semantic Hub</h1>
-      <p>Ein Zugang zu Leitungssatz-Semantik und Einheiten, mit IEC-61360-Sicht</p>
-      <p class="toplinks"><a href="/docs">API-Doku (Swagger)</a></p>
+      <p data-i18n="brand.subtitle">Ein Zugang zu Leitungssatz-Semantik und Einheiten, mit IEC-61360-Sicht</p>
+      <p class="toplinks">
+        <a href="/docs" data-i18n="nav.swagger">API-Doku (Swagger)</a>
+        <span id="lang-switch" class="lang-switch" role="group" aria-label="Sprache" data-i18n-aria-label="nav.language"></span>
+      </p>
     </div>
-    <div class="legend" aria-label="Quellen">
+    <div class="legend" aria-label="Quellen" data-i18n-aria-label="legend.label">
       <span class="src kbl">KBL <small>XSD 2.5 SR-1</small></span>
-      <span class="src vec">VEC <small>Ontologie 2.2.0</small></span>
+      <span class="src vec">VEC <small data-i18n="legend.vec">Ontologie 2.2.0</small></span>
       <span class="src qudt">QUDT <small>Units</small></span>
-      <span class="src dppo">DPPO <small>Ontologie 0.1</small></span>
+      <span class="src dppo">DPPO <small data-i18n="legend.dppo">Ontologie 0.1</small></span>
     </div>
   </header>
 
-  <section class="search" aria-label="Suche">
+  <section class="search" aria-label="Suche" data-i18n-aria-label="search.label">
     <div class="field">
-      <label for="q">Semantic ID auflösen oder Begriff suchen</label>
+      <label for="q" data-i18n="search.field">Semantic ID auflösen oder Begriff suchen</label>
       <div class="inputrow">
-        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="z. B. kbl:Component oder metre">
-        <button type="button" id="resolve-btn" class="resolve">Auflösen</button>
-        <div id="suggest" class="suggest" role="listbox" aria-label="Vorschläge" hidden></div>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="z. B. kbl:Component oder metre" data-i18n-placeholder="search.placeholder">
+        <button type="button" id="resolve-btn" class="resolve" data-i18n="search.resolve">Auflösen</button>
+        <div id="suggest" class="suggest" role="listbox" aria-label="Vorschläge" data-i18n-aria-label="search.suggestions" hidden></div>
       </div>
-      <p class="hint">Tippen zeigt Vorschläge (<code>suggest</code>, unscharf). Enter oder „Auflösen“ sucht genau diese ID (<code>resolve</code>, exakt, case-sensitive).</p>
+      <p class="hint" data-i18n="search.hint">Tippen zeigt Vorschläge (<code>suggest</code>, unscharf). Enter oder „Auflösen“ sucht genau diese ID (<code>resolve</code>, exakt, case-sensitive).</p>
     </div>
     <div class="examples">
-      <span>Beispiele</span>
+      <span data-i18n="examples.label">Beispiele</span>
       <button type="button" class="kbl" data-id="kbl:Component" aria-pressed="false">kbl:Component</button>
       <button type="button" class="vec" data-id="vec:PartVersion" aria-pressed="false">vec:PartVersion</button>
       <button type="button" class="qudt" data-id="qudt:unit:M" aria-pressed="false">qudt:unit:M</button>
@@ -49,43 +54,44 @@
     </div>
   </section>
 
-  <section class="flow" aria-label="Weg der Anfrage">
-    <div class="step"><div class="n">1 · Anfrage</div><div class="t">REST</div><div class="d" id="flow-request">GET /api/resolve/{semantic_id}</div></div>
-    <div class="step"><div class="n">2 · Quelle</div><div class="t" id="flow-source">KBL · VEC · QUDT · DPPO  </div><div class="d" id="flow-source-detail">XSD bzw. Ontologie</div></div>
-    <div class="step"><div class="n">3 · Internes Modell</div><div class="t">SemanticConcept</div><div class="d" id="flow-model">name · description · properties</div></div>
-    <div class="step"><div class="n">4 · Ausgabe</div><div class="t">IEC 61360</div><div class="d">preferred_name · definition · data_type</div></div>
+  <section class="flow" aria-label="Weg der Anfrage" data-i18n-aria-label="flow.label">
+    <div class="step"><div class="n" data-i18n="flow.step1">1 · Anfrage</div><div class="t">REST</div><div class="d">GET /api/resolve/{semantic_id}</div></div>
+    <div class="step"><div class="n" data-i18n="flow.step2">2 · Quelle</div><div class="t">KBL · VEC · QUDT · DPPO</div><div class="d" data-i18n="flow.step2.detail">XSD bzw. Ontologie</div></div>
+    <div class="step"><div class="n" data-i18n="flow.step3">3 · Internes Modell</div><div class="t">SemanticConcept</div><div class="d">name · description · properties</div></div>
+    <div class="step"><div class="n" data-i18n="flow.step4">4 · Ausgabe</div><div class="t">IEC 61360</div><div class="d">preferred_name · definition · data_type</div></div>
   </section>
 
-  <section id="empty" aria-label="Hinweis">
-    <p class="hint">Wähle ein Beispiel oder gib eine Semantic ID ein.</p>
+  <section id="empty" aria-label="Hinweis" data-i18n-aria-label="empty.label">
+    <p class="hint" data-i18n="empty.hint">Wähle ein Beispiel oder gib eine Semantic ID ein.</p>
   </section>
 
-    <p id="request-line" class="request-line mono" hidden></p>
-  <section id="notfound" class="notfound" aria-label="Nicht gefunden" hidden>
+  <p id="request-line" class="request-line mono" hidden></p>
+
+  <section id="notfound" class="notfound" aria-label="Nicht gefunden" data-i18n-aria-label="notfound.label" hidden>
     <div class="concept-head">
       <span class="pill err">resolve · 404</span>
       <h2 id="notfound-id"></h2>
     </div>
-    <p>Diese ID gibt es nicht. <code>resolve</code> ist exakt und case-sensitive, der Hub rät nicht.</p>
+    <p id="notfound-text">Diese ID gibt es nicht. <code>resolve</code> ist exakt und case-sensitive, der Hub rät nicht.</p>
     <p id="didyoumean" class="didyoumean" hidden></p>
   </section>
 
-  <section id="concept" aria-label="Konzept" hidden>
+  <section id="concept" aria-label="Konzept" data-i18n-aria-label="concept.label" hidden>
     <div class="concept-head">
       <span class="pill ok">resolve · 200</span>
       <span id="concept-source" class="src"></span>
       <h2 id="concept-id"></h2>
-      <p>exakt aufgelöst · nichts geraten</p>
+      <p data-i18n="concept.exact">exakt aufgelöst · nichts geraten</p>
     </div>
   </section>
 
   <section id="views" class="views" hidden>
     <article class="view">
-      <div class="view-head"><h3><code>format=original</code></h3><p>wie die Quelle es beschreibt</p></div>
+      <div class="view-head"><h3><code>format=original</code></h3><p data-i18n="view.original.note">wie die Quelle es beschreibt</p></div>
       <dl id="view-original" class="kv"></dl>
     </article>
     <article class="view">
-      <div class="view-head"><h3><code>format=iec61360</code></h3><p>Sicht für die AAS-ConceptDescription</p></div>
+      <div class="view-head"><h3><code>format=iec61360</code></h3><p data-i18n="view.iec.note">Sicht für die AAS-ConceptDescription</p></div>
       <dl id="view-iec" class="kv"></dl>
     </article>
   </section>
@@ -97,7 +103,7 @@
         <thead>
           <tr>
             <th>semantic_id</th>
-            <th>data_type (Quelle)</th>
+            <th data-i18n="props.source">data_type (Quelle)</th>
             <th class="arrow"></th>
             <th>data_type (IEC 61360)</th>
             <th>unit</th>
@@ -109,9 +115,9 @@
   </section>
 
   <footer class="notes">
-    <div><strong>null heißt: nicht in der Quelle</strong>Der Hub füllt keine Lücken mit Vermutungen. Typen ohne eindeutige Zuordnung bleiben als Referenz erhalten.</div>
-    <div><strong>Herkunft bleibt sichtbar</strong>Jedes Konzept und jede Property trägt ihre Quelle.</div>
-    <div><strong>Begrenzter Umfang</strong>KBL, VEC , QUDT und DPPO  sind angebunden, nicht vollständig abgebildet.</div>
+    <div><strong data-i18n="notes.null.title">null heißt: nicht in der Quelle</strong><span data-i18n="notes.null.body">Der Hub füllt keine Lücken mit Vermutungen. Typen ohne eindeutige Zuordnung bleiben als Referenz erhalten.</span></div>
+    <div><strong data-i18n="notes.provenance.title">Herkunft bleibt sichtbar</strong><span data-i18n="notes.provenance.body">Jedes Konzept und jede Property trägt ihre Quelle.</span></div>
+    <div><strong data-i18n="notes.scope.title">Begrenzter Umfang</strong><span data-i18n="notes.scope.body">KBL, VEC, QUDT und DPPO sind angebunden, nicht vollständig abgebildet.</span></div>
   </footer>
 
 </div>
