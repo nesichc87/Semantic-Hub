@@ -9,7 +9,9 @@
     before the first visitor arrives. Finally opens the demo page.
 
 .PARAMETER SourceDir
-    Folder containing kbl2.5-sr1.xsd, vec-2.2.0-ontology.ttl and qudt-unit.ttl.
+       Folder containing kbl2.5-sr1.xsd, vec-2.2.0-ontology.ttl, qudt-unit.ttl
+    and the DPPO modules dpp-odp.ttl, dpp-core.ttl, dpp-info.ttl,
+    dpp-comp.ttl and dpp-prov.ttl.
 
 .PARAMETER Port
     Port for uvicorn (default: 8000).
@@ -36,10 +38,13 @@ $sources = [ordered]@{
     SEMANTIC_HUB_QUDT_UNIT_TTL_URL = "qudt-unit.ttl"
 }
 
+$dppoModules = @("dpp-odp", "dpp-core", "dpp-info", "dpp-comp", "dpp-prov")
+
 $warmUpPaths = @(
     "/api/resolve/kbl:Component",
     "/api/resolve/vec:PartVersion",
-    "/api/resolve/qudt:unit:M",
+        "/api/resolve/qudt:unit:M",
+    "/api/resolve/dppo:dpp-core:ComponentDPP",
     "/api/suggest?query=metre"
 )
 
@@ -56,6 +61,19 @@ foreach ($name in $sources.Keys) {
     Set-Item -Path "env:$name" -Value $url
     Write-Host "$name = $url"
 }
+
+
+# DPPO consists of several modules. Its URL is a template in which the
+# application replaces {module} with the module name.
+foreach ($module in $dppoModules) {
+    $file = Join-Path $SourceDir "$module.ttl"
+    if (-not (Test-Path $file -PathType Leaf)) {
+        throw "Source file not found: $file"
+    }
+}
+$dppoDir = ([System.Uri](Resolve-Path $SourceDir).Path).AbsoluteUri.TrimEnd("/")
+$env:SEMANTIC_HUB_DPPO_TTL_URL = "$dppoDir/{module}.ttl"
+Write-Host "SEMANTIC_HUB_DPPO_TTL_URL = $env:SEMANTIC_HUB_DPPO_TTL_URL"
 
 # Refuse to start if another server already uses the port, because the
 # warm-up would otherwise hit that server and its source configuration.
@@ -89,7 +107,7 @@ foreach ($path in $warmUpPaths) {
     $elapsed = Measure-Command {
         Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl$path" -TimeoutSec 60 | Out-Null
     }
-    Write-Host ("  {0,-32} {1,6} ms" -f $path, [int]$elapsed.TotalMilliseconds)
+        Write-Host ("  {0,-40} {1,6} ms" -f $path, [int]$elapsed.TotalMilliseconds)
 }
 
 Start-Process "$baseUrl/ui/"

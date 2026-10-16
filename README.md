@@ -639,9 +639,9 @@ A local copy must have the same format as the online source (XSD for KBL, Turtle
 
 `scripts/start-demo.ps1` (Windows PowerShell) starts the application with local copies of all three sources and loads them before the first request, so that the first visitor does not have to wait for the source data to be parsed.
 
-The script expects a folder containing `kbl2.5-sr1.xsd`, `vec-2.2.0-ontology.ttl` and `qudt-unit.ttl`. It
+The script expects a folder containing `kbl2.5-sr1.xsd`, `vec-2.2.0-ontology.ttl`, `qudt-unit.ttl` and the five DPPO modules (`dpp-odp.ttl`, `dpp-core.ttl`, `dpp-info.ttl`, `dpp-comp.ttl`, `dpp-prov.ttl`). It
 
-1. checks that the three files exist and sets the source URL variables to the corresponding `file://` URLs,
+1. checks that the source files exist and sets the source URL variables to the corresponding `file://` URLs (for DPPO, a URL template),
 2. refuses to start if a server is already running on the port,
 3. starts uvicorn in a separate window, using the Python interpreter from `.venv`,
 4. waits until `/health` responds and resolves one identifier per source,
