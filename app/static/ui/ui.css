@@ -203,3 +203,4 @@ tr:last-child td { border-bottom: 0; }
 .toplinks { margin-top: 6px; font-size: 0.9em; }
 .toplinks a { color: var(--accent); text-decoration: none; }
 .toplinks a:hover, .toplinks a:focus-visible { text-decoration: underline; }
+.request-line { margin: 4px 0 12px; font-size: 0.9em; opacity: 0.75; overflow-wrap: anywhere; }

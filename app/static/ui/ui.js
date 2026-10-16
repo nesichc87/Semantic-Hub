@@ -36,7 +36,9 @@ function showOnly(state) {
   $("empty").hidden = state !== "empty";
   $("notfound").hidden = state !== "notfound";
   $("concept").hidden = state !== "found";
-  $("views").hidden = state !== "found";
+   $("views").hidden = state !== "found";
+  document.querySelector(".flow").hidden = state !== "empty";
+    $("request-line").hidden = state === "empty";
   if (state !== "found") {
     $("props").hidden = true;
   }
@@ -91,14 +93,9 @@ function propertyCount(properties) {
   return count === 1 ? "1 Eintrag" : count + " Einträge";
 }
 
-function updateFlow(semanticId, original) {
-  $("flow-request").textContent = "GET /api/resolve/" + semanticId;
-  const source = SOURCES[original ? original.source : ""];
-  $("flow-source").textContent = source ? source.title : "KBL · VEC · QUDT · DPPO";
-  $("flow-source-detail").textContent = source ? source.detail : "XSD bzw. Ontologie";
-  $("flow-model").textContent = original
-    ? propertyCount(original.properties).replace("Einträge", "Properties").replace("Eintrag", "Property")
-    : "name · description · properties";
+function showRequest(semanticId) {
+  $("request-line").textContent =
+    "GET /api/resolve/" + semanticId + "?format=original | iec61360";
 }
 
 function cell(value, mapped) {
@@ -319,6 +316,15 @@ async function showCaseVariant(semanticId, thisRequest) {
   }
 }
 
+function resetView() {
+  requestCounter++;
+  hideSuggest();
+  markExample(null);
+  setBusy(false);
+  $("didyoumean").hidden = true;
+  showOnly("empty");
+}
+
 async function resolve(semanticId) {
   semanticId = semanticId.trim();
   if (!semanticId) {
@@ -329,7 +335,7 @@ async function resolve(semanticId) {
   const thisRequest = ++requestCounter;
   input.value = semanticId;
   markExample(semanticId);
-  updateFlow(semanticId, null);
+    showRequest(semanticId);
   setBusy(true);
 
   try {
@@ -353,7 +359,7 @@ async function resolve(semanticId) {
     if (thisRequest !== requestCounter) {
       return;
     }
-    updateFlow(semanticId, original);
+
     renderFound(original, iec);
   } catch (error) {
     if (thisRequest === requestCounter) {
@@ -379,6 +385,10 @@ input.addEventListener("keydown", (event) => {
 
 input.addEventListener("input", () => {
   clearTimeout(suggestTimer);
+  if (!input.value.trim()) {
+    resetView();
+    return;
+  }
   const query = input.value.trim();
   if (query.length < SUGGEST_MIN_CHARS) {
     hideSuggest();
