@@ -4,6 +4,10 @@ Prototype implementation of the **Semantic Hub** concept described in:
 
 > **[The Semantic Hub – Unifying Fragmented Semantic Dictionaries for Industry 4.0 and AAS](https://wwwlehre.dhbw-stuttgart.de/~rentschler/Publications/ETFA2026__The_Semantic_Hub_extended.pdf)**  
 > Markus Rentschler et al.
+>
+
+<img width="1491" height="669" alt="image" src="https://github.com/user-attachments/assets/cc3e382a-f274-4ac4-bd37-4bc9de84b12d" />
+
 
 The project aims to provide an open and extensible infrastructure for resolving and retrieving semantic information from different semantic sources in the context of **Industry 4.0** and the **Asset Administration Shell (AAS)**.
 
