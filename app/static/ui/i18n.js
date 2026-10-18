@@ -11,7 +11,7 @@
 
 const TEXTS = {
   de: {
-    "brand.subtitle": "Ein Zugang zu Leitungssatz-Semantik und Einheiten, mit IEC-61360-Sicht",
+    "brand.subtitle": "Ein Zugang zu industriellen Semantiken und Einheiten im IEC-61360-Format",
     "nav.swagger": "API-Doku (Swagger)",
     "nav.language": "Sprache",
     "legend.label": "Quellen",
@@ -53,14 +53,14 @@ const TEXTS = {
     "suggest.shown": "{count} angezeigt",
     "suggest.more": "{count} weitere · Eingabe verfeinern",
     "notes.null.title": "null heißt: nicht in der Quelle",
-    "notes.null.body": "Der Hub füllt keine Lücken mit Vermutungen. Typen ohne eindeutige Zuordnung bleiben als Referenz erhalten.",
+    "notes.null.body": "Der Semantik-Hub füllt keine Lücken mit Vermutungen. Typen ohne eindeutige Zuordnung bleiben als Referenz erhalten.",
     "notes.provenance.title": "Herkunft bleibt sichtbar",
     "notes.provenance.body": "Jedes Konzept und jede Property trägt ihre Quelle.",
     "notes.scope.title": "Begrenzter Umfang",
     "notes.scope.body": "KBL, VEC, QUDT und DPPO sind angebunden, nicht vollständig abgebildet.",
   },
   en: {
-    "brand.subtitle": "One access point to wiring harness semantics and units, with an IEC 61360 view",
+    "brand.subtitle": "One access point to industrial semantics and units, with an IEC 61360 view",
     "nav.swagger": "API docs (Swagger)",
     "nav.language": "Language",
     "legend.label": "Sources",
@@ -102,7 +102,7 @@ const TEXTS = {
     "suggest.shown": "{count} shown",
     "suggest.more": "{count} more · refine your input",
     "notes.null.title": "null means: not in the source",
-    "notes.null.body": "The hub does not fill gaps with guesses. Types without an unambiguous mapping are kept as a reference.",
+    "notes.null.body": "The semantic hub does not fill gaps with guesses. Types without an unambiguous mapping are kept as a reference.",
     "notes.provenance.title": "Provenance stays visible",
     "notes.provenance.body": "Every concept and every property carries its source.",
     "notes.scope.title": "Limited scope",
