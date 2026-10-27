@@ -24,6 +24,16 @@ DEMO_LINK_BAR = (
     "&larr; Semantic Hub demo page</a></div>"
 )
 
+class NoCacheStaticFiles(StaticFiles):
+    """
+    Static files the browser must revalidate on every load, so that a
+    changed demo page is never served from a stale browser cache.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 app = FastAPI(
     title="Semantic Hub",
@@ -46,7 +56,7 @@ app.include_router(
     tags=["Semantic Hub"],
 )
 
-app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
+app.mount("/ui", NoCacheStaticFiles(directory=UI_DIR, html=True), name="ui")
 app.mount("/static/swagger", StaticFiles(directory=SWAGGER_DIR), name="swagger")
 
 
