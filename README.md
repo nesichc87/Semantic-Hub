@@ -548,6 +548,7 @@ Error responses:
 
 - `404` – the semantic identifier could not be resolved
 - `422` – invalid request parameters (e.g. unsupported `format` value)
+- `503` – the responsible semantic source could not be loaded (e.g. no network access and no local copy)
 
 #### Semantic suggestions
 

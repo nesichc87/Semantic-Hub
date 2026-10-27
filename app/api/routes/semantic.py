@@ -2,6 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 import os
+import logging
 
 
 from app.formatter.original import OriginalFormatter
@@ -26,6 +27,7 @@ from app.config import source_url
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 KBL_XSD_URL = source_url(
@@ -167,6 +169,12 @@ def resolve(
         raise HTTPException(
             status_code=404,
             detail=str(exc),
+        )
+    except RuntimeError:
+        logger.warning("Resolving '%s' failed", semantic_id, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="The responsible semantic source is currently unavailable.",
         )
 
 

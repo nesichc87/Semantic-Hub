@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-
+from app.api.routes import semantic
 from app.main import app
 
 
@@ -33,3 +33,14 @@ def test_resolve_with_unsupported_format_returns_422():
     response = client.get("/api/resolve/mock:123?format=xml")
 
     assert response.status_code == 422
+
+def test_resolve_returns_503_when_source_cannot_be_loaded(monkeypatch):
+    def unavailable(semantic_id):
+        raise RuntimeError("Failed to load source from 'file:///private/path'")
+
+    monkeypatch.setattr(semantic.resolver, "resolve", unavailable)
+
+    response = client.get("/api/resolve/mock:123")
+
+    assert response.status_code == 503
+    assert "private" not in response.text
