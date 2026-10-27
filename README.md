@@ -443,6 +443,7 @@ The Registry uses `can_resolve()` to determine which source is able to resolve a
 For suggestions, the Registry delegates the search query to all registered sources and returns their results in registration order of the sources. The order within each source is kept, so each source ranks its own suggestions.
 
 This provides an extensible mechanism for adding additional semantic resources.
+If a source fails (e.g. because its source data cannot be loaded), it is skipped and a warning is logged, so the suggestions of the other sources are still returned.
 
 ---
 

@@ -1,4 +1,9 @@
+import logging
+
 from app.sources.base import SemanticSource
+
+
+logger = logging.getLogger(__name__)
 
 
 class SemanticRegistry:
@@ -22,11 +27,22 @@ class SemanticRegistry:
         Results are returned in registration order of the sources.
         The order within each source is kept, so sources can rank
         their own suggestions.
+
+        A source that fails (e.g. because its data cannot be loaded) is
+        skipped and logged, so that it does not break the suggestions of
+        the other sources.
         """
 
         results = []
 
         for source in self._sources:
-            results.extend(source.suggest(query))
+            try:
+                results.extend(source.suggest(query))
+            except Exception:
+                logger.warning(
+                    "Suggestions from %s failed and were skipped",
+                    type(source).__name__,
+                    exc_info=True,
+                )
 
         return results

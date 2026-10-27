@@ -37,3 +37,25 @@ def test_suggest_passes_query_to_all_sources():
 
     assert first.queries == ["metre"]
     assert second.queries == ["metre"]
+
+class FailingSource(FakeSource):
+    def suggest(self, query: str) -> list[str]:
+        raise RuntimeError("source not reachable")
+
+
+def test_suggest_skips_failing_source_and_keeps_the_others():
+    registry = SemanticRegistry()
+    registry.register(FakeSource(["a:first"]))
+    registry.register(FailingSource([]))
+    registry.register(FakeSource(["c:last"]))
+
+    assert registry.suggest("query") == ["a:first", "c:last"]
+
+
+def test_suggest_logs_failing_source(caplog):
+    registry = SemanticRegistry()
+    registry.register(FailingSource([]))
+
+    registry.suggest("query")
+
+    assert "FailingSource" in caplog.text
