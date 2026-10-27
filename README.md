@@ -8,6 +8,8 @@ Prototype implementation of the **Semantic Hub** concept described in:
 
 <img width="1491" height="669" alt="image" src="https://github.com/user-attachments/assets/cc3e382a-f274-4ac4-bd37-4bc9de84b12d" />
 
+This repository implements the **Retrieval Service** of the Semantic Hub concept (resolver, REST API and demo page). The Semantic Wikibase and the IDTA Semantic Repository described in the paper are not part of it. The project was started as a private, open project and is not part of a funded project.
+
 
 The project aims to provide an open and extensible infrastructure for resolving and retrieving semantic information from different semantic sources in the context of **Industry 4.0** and the **Asset Administration Shell (AAS)**.
 
