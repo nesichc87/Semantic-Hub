@@ -1,5 +1,7 @@
 # Semantic Hub
 
+[![Tests](https://github.com/nesichc87/Semantic-Hub/actions/workflows/tests.yml/badge.svg)](https://github.com/nesichc87/Semantic-Hub/actions/workflows/tests.yml)
+
 Prototype implementation of the **Semantic Hub** concept described in:
 
 > **[The Semantic Hub – Unifying Fragmented Semantic Dictionaries for Industry 4.0 and AAS](https://wwwlehre.dhbw-stuttgart.de/~rentschler/Publications/ETFA2026__The_Semantic_Hub_extended.pdf)**  
@@ -9,7 +11,6 @@ Prototype implementation of the **Semantic Hub** concept described in:
 <img width="1491" height="669" alt="image" src="https://github.com/user-attachments/assets/cc3e382a-f274-4ac4-bd37-4bc9de84b12d" />
 
 This repository implements the **Retrieval Service** of the Semantic Hub concept (resolver, REST API and demo page). The Semantic Wikibase and the IDTA Semantic Repository described in the paper are not part of it. The project was started as a private, open project and is not part of a funded project.
-
 
 The project aims to provide an open and extensible infrastructure for resolving and retrieving semantic information from different semantic sources in the context of **Industry 4.0** and the **Asset Administration Shell (AAS)**.
 
@@ -59,20 +60,23 @@ The project is being built up incrementally. KBL (XSD-based), VEC (ontology-base
   - `iec61360` – minimal IEC 61360-oriented representation with partial data type mapping (not a complete or conformant IEC 61360 implementation)
 - Suggestion endpoint for semantic identifiers:
   - ranked results per source: exact matches first, then prefix matches, then substring matches
+  - a source that cannot be loaded is skipped, so the other sources still return suggestions
+- Error handling: unknown identifiers return 404, a source that cannot be loaded returns 503
 - Demo page under `/ui/` (static HTML, CSS and JavaScript served by FastAPI, no external dependencies or build step):
   - search field with live suggestions grouped by source
   - exact resolution via button or Enter, including the 404 case with a hint for IDs that differ only in letter case
   - `original` and `iec61360` output side by side, with a property table comparing source and IEC 61360 data types
-    - example identifiers for KBL, VEC, QUDT and DPPO
+  - example identifiers for KBL, VEC, QUDT and DPPO
   - a request line showing the current call; clearing the search field resets the page
   - German and English user interface, switchable on the page; all texts are kept in `app/static/ui/i18n.js`, so further languages can be added there
   - links to the Swagger UI and back
-- Automated tests (pytest) for the semantic model, KBL and VEC resolution, data type mapping, formatters and API
+- Automated tests (pytest) for the semantic model, all sources (with small self-written vocabularies where possible), ranking, configuration, data type mapping, formatters, API and the delivery of the demo page; run on every push via GitHub Actions
 
 ### Planned
 
 - QUDT quantity kinds and unit values (e.g. symbol, IEC 61360 code)
-- VEC integration
+- Units with SI reference (under evaluation, e.g. the BIPM SI Digital Framework)
+- DPPO properties whose domain is a union of classes (`owl:unionOf`)
 - ECLASS (under evaluation): based on the ECLASS 16.0 Asset; integration approach and licensing conditions are still to be clarified
 - Review and extension of the IEC 61360-oriented output
 - Persistent caching of source data (approach to be decided, e.g. file-based or database-backed)
@@ -97,27 +101,27 @@ The project follows a layered architecture that separates the REST API from sema
                         ▼
                 Semantic Registry
                         │
-        ┌───────────────┼───────────────┐
-        ▼               ▼               ▼
-       KBL             VEC             QUDT
-   (XSD, limited)  (OWL, limited)   (TTL, limited)
-        │               │
-        └───────┬───────┘
-                ▼
- Internal Semantic Model
- (concepts, properties, provenance)
-        │
-        ▼
-  Formatter
- (original / iec61360)
-        │
-        ▼
-   API response
+      ┌────────────┬────┴───────┬────────────┐
+      ▼            ▼            ▼            ▼
+     KBL          VEC          QUDT         DPPO
+    (XSD)        (OWL)        (TTL)        (OWL)
+      │            │            │            │
+      └────────────┴─────┬──────┴────────────┘
+                         ▼
+              Internal Semantic Model
+         (concepts, properties, provenance)
+                         │
+                         ▼
+                     Formatter
+               (original / iec61360)
+                         │
+                         ▼
+                   API response
 ```
 
 Semantic sources are implemented behind a common interface and map their source information into the internal semantic model. Source provenance is kept in the model.
 
-The formatters operate on the internal semantic model rather than on source-specific data. This is intended to allow additional sources to reuse the existing output formats. With VEC as a second, differently modelled source (OWL ontology instead of XSD, ontology-native property identifiers instead of composed ones), the existing formatters, resolver and API endpoints could be reused without changes.
+The formatters operate on the internal semantic model rather than on source-specific data. This is intended to allow additional sources to reuse the existing output formats. With VEC as a second, differently modelled source (OWL ontology instead of XSD, ontology-native property identifiers instead of composed ones), the existing formatters, resolver and API endpoints could be reused without changes. The same applied to QUDT and DPPO.
 
 A mock source is additionally available for development and testing.
 
@@ -172,7 +176,7 @@ The content of `result` depends on the requested format. For `kbl:Component`, bo
 
 In the `iec61360` format, only supported data types are mapped (currently `xs:string` → `STRING`, `xs:boolean` → `BOOLEAN`). Unsupported or complex types are returned with `data_type: null`; the property itself is kept.
 
-Unknown semantic identifiers result in HTTP 404.
+Unknown semantic identifiers result in HTTP 404. If the responsible source cannot be loaded, the API returns HTTP 503.
 
 ---
 
@@ -180,6 +184,10 @@ Unknown semantic identifiers result in HTTP 404.
 
 ```
 Semantic-Hub/
+│
+├── .github/
+│   └── workflows/
+│       └── tests.yml               # runs the tests on every push (GitHub Actions)
 │
 ├── app/
 │   ├── api/
@@ -205,26 +213,27 @@ Semantic-Hub/
 │   │   ├── base.py                 # common semantic source interface
 │   │   ├── mock.py                 # mock source (development / testing)
 │   │   ├── ranking.py              # ranking of suggestions (exact, prefix, substring)
-│   │   ├──kbl/
+│   │   ├── kbl/
 │   │   │   ├── client.py           # loading of the KBL XSD
 │   │   │   ├── parser.py           # XSD parsing
 │   │   │   ├── service.py          # high-level resolution of KBL types and their elements
-│   │   │   ├── mapper.py           # placeholder (currently empty)
-│   │   │   └── source.py           # KBL semantic source, maps resolved types to the internal model
+│   │   │   ├── mapper.py           # maps resolved types to the internal model
+│   │   │   └── source.py           # KBL semantic source
 │   │   ├── vec/
-│   │   │    ├── client.py           # loading of the VEC ontology (Turtle)
-│   │   │    ├── service.py          # resolution of VEC classes, properties and inheritance
-│   │   │    └── source.py           # VEC semantic source, maps classes to the internal model
+│   │   │   ├── client.py           # loading of the VEC ontology (Turtle)
+│   │   │   ├── service.py          # resolution of VEC classes, properties and inheritance
+│   │   │   ├── mapper.py           # maps resolved classes to the internal model
+│   │   │   └── source.py           # VEC semantic source
 │   │   ├── qudt/
 │   │   │   ├── client.py           # loading of the QUDT unit vocabulary (Turtle)
 │   │   │   ├── service.py          # resolution and search of QUDT units
 │   │   │   ├── mapper.py           # maps resolved units to the internal model
 │   │   │   └── source.py           # QUDT semantic source
-│   │   ├── dppo/
-│   │   │   ├── client.py           # loading of the DPPO modules (Turtle) from a URL template
-│   │   │   ├── service.py          # resolution and search of DPPO classes across modules
-│   │   │   ├── mapper.py           # maps resolved classes to the internal model
-│   │   │   └── source.py           # DPPO semantic source
+│   │   └── dppo/
+│   │       ├── client.py           # loading of the DPPO modules (Turtle) from a URL template
+│   │       ├── service.py          # resolution and search of DPPO classes across modules
+│   │       ├── mapper.py           # maps resolved classes to the internal model
+│   │       └── source.py           # DPPO semantic source
 │   │
 │   ├── static/
 │   │   ├── swagger/                # local copy of Swagger UI (swagger-ui-dist 5.17.14, Apache License 2.0)
@@ -235,7 +244,7 @@ Semantic-Hub/
 │   │       └── ui.js               # suggestions, resolution, property table, language switch
 │   │
 │   ├── config.py                   # source URL configuration via environment variables
-│   └── main.py                     # FastAPI application
+│   └── main.py                     # FastAPI application, demo page and local Swagger UI
 │
 ├── scripts/
 │   └── start-demo.ps1              # offline start with local sources and warm-up
@@ -276,12 +285,37 @@ Semantic identifiers use the form `kbl:<TypeName>` for concepts and `kbl:<TypeNa
 - Numeric XSD types are not mapped to an IEC 61360 data type, because the semantic context is missing.
 - `definition` is `null` for KBL. The KBL XSD v2.5 SR-1 contains no descriptive documentation: its `xs:documentation` entries are exclusively reference hints on `IDREF`/`IDREFS` elements (e.g. "ref to External_reference"). These are not definitions and are currently not evaluated.
 - `unit` is `null` for KBL. The KBL schema does not define concrete units: types derived from `Value_with_unit` (e.g. `Numerical_value`) reference a `Unit` object via `xs:IDREF`, so the unit is only determined in a KBL instance document. Since the Semantic Hub evaluates the schema, not instance documents, no unit can be derived.
-- The XSD is loaded remotely on first use and then kept in memory for the lifetime of the process. There is no persistent cache yet, so the first request after a restart requires network access.
+- The XSD is loaded on first use and then kept in memory for the lifetime of the process. There is no persistent cache yet; without network access, a local copy must be configured (see Development).
 - This is not a complete KBL implementation.
 
-### Mock (development and testing)
+### VEC (implemented, limited scope)
 
-A mock source (`mock:` prefix) is used for development and testing. It returns a minimal concept of the internal semantic model.
+VEC is the second real semantic source. It is integrated via the VEC 2.2.0 OWL ontology (Turtle), not the VEC XSD. This keeps KBL (XSD-based) and the ontology-based sources (VEC, QUDT, DPPO) on their natural representation.
+
+Semantic identifiers use the form `vec:<ClassName>` for concepts. Properties keep their ontology-native identifiers, e.g. `vec:PartVersion` and `vec:partVersionPartNumber`. Unlike KBL, property identifiers are therefore not composed from the concept name.
+
+**Supported:**
+
+- named OWL classes in the VEC namespace
+- properties attached via `rdfs:domain`
+- inherited properties via `rdfs:subClassOf`; inherited properties come first, starting with the most general base class
+- definitions from `rdfs:comment` for classes and properties (English or language-neutral comments preferred)
+- data types from `rdfs:range`; XSD ranges are normalized to the `xs:` prefix (e.g. `xs:string`)
+- exact, case-sensitive class resolution
+- case-insensitive search of class names for suggestions
+- source provenance; for properties, `source_reference` points to the property resource itself
+
+**Current limitations:**
+
+- Only classes can be resolved. Properties, individuals and enumeration values are not resolvable as separate semantic identifiers.
+- OWL restrictions (e.g. cardinalities) are not evaluated.
+- Object properties have a class as range (e.g. `vec:AliasIdentification`); they are returned with `data_type: null` in the `iec61360` format.
+- If a property has several ranges, the first one (sorted) is used.
+- `unit` is not evaluated and currently `null`.
+- The ontology is loaded remotely on first use and then kept in memory for the lifetime of the process.
+- This is not a complete VEC implementation.
+
+An earlier student prototype mapping the VEC ontology to IEC 61360 served as a reference for the mapping of `rdfs:label`/`rdfs:comment`. Its fuzzy best-match resolution was intentionally not adopted: resolution remains exact, fuzzy matching is limited to suggestions.
 
 ### QUDT (implemented, limited scope)
 
@@ -315,39 +349,6 @@ GET /api/resolve/qudt%3Aunit%3AM?format=original
 
 An earlier prototype accessed QUDT via a SPARQL endpoint. A file-based approach was chosen instead to keep the same source pattern as VEC and to resolve against a fixed release within a process. The prototype's fuzzy best-match resolution was not adopted.
 
-### VEC (implemented, limited scope)
-
-VEC is the second real semantic source. It is integrated via the VEC 2.2.0 OWL ontology (Turtle), not the VEC XSD. This keeps KBL (XSD-based) and the ontology-based sources (VEC, later QUDT) on their natural representation.
-
-Semantic identifiers use the form `vec:<ClassName>` for concepts. Properties keep their ontology-native identifiers, e.g. `vec:PartVersion` and `vec:partVersionPartNumber`. Unlike KBL, property identifiers are therefore not composed from the concept name.
-
-**Supported:**
-
-- named OWL classes in the VEC namespace
-- properties attached via `rdfs:domain`
-- inherited properties via `rdfs:subClassOf`; inherited properties come first, starting with the most general base class
-- definitions from `rdfs:comment` for classes and properties (English or language-neutral comments preferred)
-- data types from `rdfs:range`; XSD ranges are normalized to the `xs:` prefix (e.g. `xs:string`)
-- exact, case-sensitive class resolution
-- case-insensitive search of class names for suggestions
-- source provenance; for properties, `source_reference` points to the property resource itself
-
-**Current limitations:**
-
-- Only classes can be resolved. Properties, individuals and enumeration values are not resolvable as separate semantic identifiers.
-- OWL restrictions (e.g. cardinalities) are not evaluated.
-- Object properties have a class as range (e.g. `vec:AliasIdentification`); they are returned with `data_type: null` in the `iec61360` format.
-- If a property has several ranges, the first one (sorted) is used.
-- `unit` is not evaluated and currently `null`.
-- The ontology is loaded remotely on first use and then kept in memory for the lifetime of the process.
-- This is not a complete VEC implementation.
-
-An earlier student prototype mapping the VEC ontology to IEC 61360 served as a reference for the mapping of `rdfs:label`/`rdfs:comment`. Its fuzzy best-match resolution was intentionally not adopted: resolution remains exact, fuzzy matching is limited to suggestions.
-
-### ECLASS (under evaluation)
-
-The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
-
 ### DPPO (implemented, limited scope)
 
 DPPO (Digital Product Passport Ontology) is integrated via its OWL ontology, which is published as five Turtle modules (`dpp-odp`, `dpp-core`, `dpp-info`, `dpp-comp`, `dpp-prov`). All modules are loaded into one RDF graph, following the same pattern as VEC. The integration was checked against version 0.1 (26 classes). According to its authors, the ontology is under development and may still change considerably.
@@ -375,6 +376,14 @@ Semantic identifiers use the form `dppo:<module>:<LocalName>`, e.g. `dppo:dpp-co
 - This is not a complete DPPO implementation.
 
 **License:** not yet clarified. The ontology files refer to a license file that could not be retrieved. No DPPO data is included in this repository.
+
+### ECLASS (under evaluation)
+
+The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
+
+### Mock (development and testing)
+
+A mock source (`mock:` prefix) is used for development and testing. It returns a minimal concept of the internal semantic model.
 
 ---
 
@@ -442,8 +451,9 @@ The Registry uses `can_resolve()` to determine which source is able to resolve a
 
 For suggestions, the Registry delegates the search query to all registered sources and returns their results in registration order of the sources. The order within each source is kept, so each source ranks its own suggestions.
 
-This provides an extensible mechanism for adding additional semantic resources.
 If a source fails (e.g. because its source data cannot be loaded), it is skipped and a warning is logged, so the suggestions of the other sources are still returned.
+
+This provides an extensible mechanism for adding additional semantic resources.
 
 ---
 
@@ -474,7 +484,7 @@ Output fields per concept and property:
 | `unit` | unit, if available |
 | `source_of_definition` | source from the provenance, if available |
 
-Concepts additionally contain their `properties` and a `data_type`. The concept's `data_type` is set for value types (e.g. KBL simple types, using their base type) and is `null` for concepts that are described by properties (e.g. KBL complex types, VEC classes). It is mapped with the same rules as property data types.
+Concepts additionally contain their `properties` and a `data_type`. The concept's `data_type` is set for value types (e.g. KBL simple types, using their base type) and is `null` for concepts that are described by properties (e.g. KBL complex types, VEC and DPPO classes). It is mapped with the same rules as property data types.
 
 Data type mapping (`app/formatter/iec61360_types.py`):
 
@@ -558,7 +568,7 @@ GET /api/suggest?query={text}
 
 Searches all registered semantic sources for semantic identifiers matching the query. `query` is required and must not be empty.
 
-Matching is case-insensitive. Within each source, results are ranked by their best matching search text: exact matches first, then prefix matches, then substring matches, each sorted alphabetically. Search texts are the type or class name (KBL, VEC) and, for QUDT, theSearch texts are the type or class name (KBL, VEC, DPPO) and, for QUDT, the unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT, DPPO); there is no ranking across sources. unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT); there is no ranking across sources.
+Matching is case-insensitive. Within each source, results are ranked by their best matching search text: exact matches first, then prefix matches, then substring matches, each sorted alphabetically. Search texts are the type or class name (KBL, VEC, DPPO) and, for QUDT, the unit's local name and English or untagged labels. Results are grouped by source in registration order (KBL, VEC, QUDT, DPPO); there is no ranking across sources. A source that cannot be loaded is skipped.
 
 Response:
 
@@ -568,6 +578,7 @@ Response:
   "results": [ ... ]
 }
 ```
+
 ---
 
 ## Docker
@@ -591,9 +602,8 @@ Docker Container
 └──────────────────────────────┘
 ```
 
-Additional services may later be deployed as separate containers using Docker Compose, for example:
+The demo page is served by the API itself and needs no separate container. Additional services may later be deployed as separate containers using Docker Compose, for example:
 
-- a graphical user interface
 - a database-backed cache for source data and resolved concepts (under consideration; the caching approach has not been decided yet)
 
 ---
@@ -621,6 +631,7 @@ Run the tests:
 ```
 python -m pytest
 ```
+
 The tests also run automatically on every push and pull request (GitHub Actions, `.github/workflows/tests.yml`).
 
 Note: The KBL, VEC, QUDT and DPPO sources load their source data (KBL XSD, VEC ontology, QUDT unit vocabulary, DPPO modules) from the prostep ECAD wiki, qudt.org and liusemweb.github.io on first use. Resolving these identifiers therefore requires network access; KBL-related tests may require it as well. The VEC, QUDT and DPPO tests use small self-written vocabularies and run without network access.
@@ -639,18 +650,19 @@ The source URLs can be overridden with environment variables. If a variable is n
 | `SEMANTIC_HUB_DPPO_TTL_URL` | DPPO modules | `https://liusemweb.github.io/DPPO/ontology/{module}/0.1/{module}.ttl` |
 
 The variables are read when the application starts, so they must be set before the server is started. Local copies can be configured as `file://` URLs, e.g. in PowerShell:
-The DPPO URL is a template: `{module}` is replaced by each module name. A local copy can therefore be configured as e.g. `file:///C:/sources/dppo/{module}.ttl`.
 
 ```
 $env:SEMANTIC_HUB_VEC_TTL_URL = "file:///C:/sources/vec-2.2.0-ontology.ttl"
 uvicorn app.main:app
 ```
 
-A local copy must have the same format as the online source (XSD for KBL, Turtle for VEC and QUDT). Local copies of source data are not part of this repository; the licenses of the respective sources apply (see Semantic Sources).
+The DPPO URL is a template: `{module}` is replaced by each module name. A local copy can therefore be configured as e.g. `file:///C:/sources/dppo/{module}.ttl`.
+
+A local copy must have the same format as the online source (XSD for KBL, Turtle for VEC, QUDT and DPPO). Local copies of source data are not part of this repository; the licenses of the respective sources apply (see Semantic Sources).
 
 ### Running the demo offline
 
-`scripts/start-demo.ps1` (Windows PowerShell) starts the application with local copies of all three sources and loads them before the first request, so that the first visitor does not have to wait for the source data to be parsed.
+`scripts/start-demo.ps1` (Windows PowerShell) starts the application with local copies of all four sources and loads them before the first request, so that the first visitor does not have to wait for the source data to be parsed.
 
 The script expects a folder containing `kbl2.5-sr1.xsd`, `vec-2.2.0-ontology.ttl`, `qudt-unit.ttl` and the five DPPO modules (`dpp-odp.ttl`, `dpp-core.ttl`, `dpp-info.ttl`, `dpp-comp.ttl`, `dpp-prov.ttl`). It
 
@@ -671,12 +683,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-demo.ps1 -SourceDir <fo
 ## Reference
 
 The project is based on the concepts described in:
-https://wwwlehre.dhbw-stuttgart.de/~rentschler/Publications/ETFA2026__The_Semantic_Hub_extended.pdf
-Rentschler, M. et al.
 
-The Semantic Hub – Unifying Fragmented Semantic Dictionaries for Industry 4.0 and AAS.
+Rentschler, M. et al.: *The Semantic Hub – Unifying Fragmented Semantic Dictionaries for Industry 4.0 and AAS.* ETFA 2026.
+[Extended version (PDF)](https://wwwlehre.dhbw-stuttgart.de/~rentschler/Publications/ETFA2026__The_Semantic_Hub_extended.pdf)
 
 The paper proposes an open infrastructure for integrating heterogeneous semantic resources and describes a Retrieval Service consisting of components including a Registry, Resolver and Formatter.
 
-The project uses these concepts as the architectural basis for the implementation.
+This repository implements the Retrieval Service and uses these concepts as the architectural basis. The internal semantic model between the sources and the formatters is an addition of this implementation.
 
