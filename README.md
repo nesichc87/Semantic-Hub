@@ -619,6 +619,7 @@ Run the tests:
 ```
 python -m pytest
 ```
+The tests also run automatically on every push and pull request (GitHub Actions, `.github/workflows/tests.yml`).
 
 Note: The KBL, VEC, QUDT and DPPO sources load their source data (KBL XSD, VEC ontology, QUDT unit vocabulary, DPPO modules) from the prostep ECAD wiki, qudt.org and liusemweb.github.io on first use. Resolving these identifiers therefore requires network access; KBL-related tests may require it as well. The VEC, QUDT and DPPO tests use small self-written vocabularies and run without network access.
 
