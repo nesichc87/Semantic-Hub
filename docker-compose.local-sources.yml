@@ -1,8 +1,9 @@
 # Optional override: use local copies of the source data (offline / trade-fair setup).
 #
 #   SEMANTIC_HUB_SOURCE_DIR=<folder with the local copies> \
-#   docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d --build
-#
+#   docker compose build   # once, while online
+#   SEMANTIC_HUB_SOURCE_DIR=<folder with the local copies> \
+#   docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d
 # The folder must contain kbl2.5-sr1.xsd, vec-2.2.0-ontology.ttl, qudt-unit.ttl
 # and the DPPO modules dpp-odp.ttl, dpp-core.ttl, dpp-info.ttl, dpp-comp.ttl,
 # dpp-prov.ttl (same layout as for scripts/start-demo.ps1).

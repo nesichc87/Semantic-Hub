@@ -114,18 +114,22 @@ curl "http://localhost:8000/api/resolve/vec:PartVersion"
 
 The source URLs are passed to the container through the environment variables described in "Configuring source URLs". If they are not set, the default online URLs are used. They can be set in the shell or in a `.env` file next to `docker-compose.yml`.
 
-For use without internet access, put the local copies into one folder (same file names as for `scripts/start-demo.ps1`) and start with the override file:
+For use without internet access, put the local copies into one folder (same file names as for `scripts/start-demo.ps1`). Build the image once while online, then start with the override file and without `--build`:
 
 ```
-SEMANTIC_HUB_SOURCE_DIR=/path/to/sources docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d --build
+docker compose build
+SEMANTIC_HUB_SOURCE_DIR=/path/to/sources docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d
 ```
 
 In PowerShell:
 
 ```
+docker compose build
 $env:SEMANTIC_HUB_SOURCE_DIR = "C:\sources"
-docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d
 ```
+
+Starting with `--build` requires network access even if all image layers are cached, because Docker looks up the base image `python:3.13-slim` in the registry.
 
 The folder is mounted read-only into the container. Local copies of source data are not part of this repository; the licenses of the respective sources apply (see [Semantic sources](sources.md)).
 
