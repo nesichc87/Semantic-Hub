@@ -1,0 +1,14 @@
+services:
+  semantic-hub:
+    build: .
+    image: semantic-hub:local
+    ports:
+      - "${SEMANTIC_HUB_PORT:-8000}:8000"
+    # Source URLs: if a variable is not set or empty, the application uses the
+    # default online URL. See docs/development.md.
+    environment:
+      SEMANTIC_HUB_KBL_XSD_URL: ${SEMANTIC_HUB_KBL_XSD_URL:-}
+      SEMANTIC_HUB_VEC_TTL_URL: ${SEMANTIC_HUB_VEC_TTL_URL:-}
+      SEMANTIC_HUB_QUDT_UNIT_TTL_URL: ${SEMANTIC_HUB_QUDT_UNIT_TTL_URL:-}
+      SEMANTIC_HUB_DPPO_TTL_URL: ${SEMANTIC_HUB_DPPO_TTL_URL:-}
+    restart: unless-stopped

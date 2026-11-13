@@ -41,7 +41,7 @@ Supported constructs, identifier schemes, limitations and licenses of the source
 
 ## Quickstart
 
-Requires Python 3.13.
+Requires Python 3.13. To run it in Docker instead, see [Deployment](docs/development.md#deployment).
 
 ```
 pip install -r requirements.txt
@@ -68,7 +68,7 @@ The sources load their data from the internet on first use. For offline use, loc
 - [Architecture](docs/architecture.md) – layers, request flow, source interface, registry, resolver, formatters, project structure
 - [Semantic sources](docs/sources.md) – KBL, VEC, QUDT, DPPO, ECLASS: scope and limitations
 - [REST API](docs/api.md) – endpoints, responses and error codes
-- [Development](docs/development.md) – setup, tests, source URL configuration, offline demo, Docker plans
+- [Development](docs/development.md) – setup, tests, source URL configuration, offline demo, deployment with Docker
 
 ## Planned
 
@@ -79,7 +79,6 @@ The sources load their data from the internet on first use. For offline use, loc
 - Review and extension of the IEC 61360-oriented output
 - Persistent caching of source data
 - AAS-compatible semantic information
-- Docker-based deployment
 
 ## Reference
 
