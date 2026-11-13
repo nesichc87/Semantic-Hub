@@ -70,27 +70,96 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-demo.ps1 -SourceDir <fo
 
 `-Port` selects a different port (default: 8000). `-ExecutionPolicy Bypass` applies to this call only and is needed if running scripts is disabled on the machine.
 
-## Docker
+## Deployment
 
-Docker-based deployment is planned. A Dockerfile does not exist yet.
-
-Planned deployment:
+The Semantic Hub runs as one Docker container: the FastAPI application with the resolver, the registry, the four sources and the demo page. The container only packages the state of the checked-out tag; it contains no source data.
 
 ```
 Docker Container
 ┌──────────────────────────────┐
-│                              │
 │       Semantic Hub API       │
-│                              │
 │          FastAPI             │
-│             │                │
 │       Resolver / Registry    │
-│             │                │
 │        Semantic Sources      │
-│                              │
+│   (demo page: /ui/, API docs: /docs)
 └──────────────────────────────┘
 ```
 
-The demo page is served by the API itself and needs no separate container. Additional services may later be deployed as separate containers using Docker Compose, for example:
+Requirements: Docker with Docker Compose v2, and network access to the source servers (prostep ECAD wiki, qudt.org, liusemweb.github.io) unless local copies are configured (see below).
 
-- a database-backed cache for source data and resolved concepts (under consideration; the caching approach has not been decided yet)
+### Start
+
+```
+git clone --branch v0.1.1 https://github.com/nesichc87/Semantic-Hub.git
+cd Semantic-Hub
+docker compose up -d --build
+```
+
+The API listens on port 8000 (change it with the environment variable `SEMANTIC_HUB_PORT`, e.g. `SEMANTIC_HUB_PORT=8080`).
+
+### Check
+
+```
+docker compose ps
+curl http://localhost:8000/health
+curl "http://localhost:8000/api/resolve/vec:PartVersion"
+```
+
+- `docker compose ps` shows the state `healthy` once the health check on `/health` succeeds.
+- `/health` returns `{"status":"ok"}`.
+- The demo page is at `http://localhost:8000/ui/`, Swagger UI at `http://localhost:8000/docs`.
+- The sources load their data on first use, so the first request per source takes longer. A source that cannot be loaded returns 503 and does not affect the others.
+
+### Source URLs and local copies
+
+The source URLs are passed to the container through the environment variables described in "Configuring source URLs". If they are not set, the default online URLs are used. They can be set in the shell or in a `.env` file next to `docker-compose.yml`.
+
+For use without internet access, put the local copies into one folder (same file names as for `scripts/start-demo.ps1`). Build the image once while online, then start with the override file and without `--build`:
+
+```
+docker compose build
+SEMANTIC_HUB_SOURCE_DIR=/path/to/sources docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d
+```
+
+In PowerShell:
+
+```
+docker compose build
+$env:SEMANTIC_HUB_SOURCE_DIR = "C:\sources"
+docker compose -f docker-compose.yml -f docker-compose.local-sources.yml up -d
+```
+
+Starting with `--build` requires network access even if all image layers are cached, because Docker looks up the base image `python:3.13-slim` in the registry.
+
+The folder is mounted read-only into the container. Local copies of source data are not part of this repository; the licenses of the respective sources apply (see [Semantic sources](sources.md)).
+
+### Logs, restart, stop
+
+```
+docker compose logs -f
+docker compose restart
+docker compose down
+```
+
+The container restarts automatically after a reboot of the Docker host (`restart: unless-stopped`). It keeps no data; sources are loaded again after every restart.
+
+### Update
+
+```
+git fetch --tags
+git checkout <new tag>
+docker compose up -d --build
+```
+
+## Branches and releases
+
+- `main` contains the latest presentable state. It is only changed via pull requests from `develop`, and the tests must pass.
+- `develop` is the integration branch for ongoing work.
+- Work is done in feature branches created from `develop` (e.g. `feature/generic-sources`) and merged back into `develop` via pull request once the tests pass.
+- Presentable states are tagged on `main` using semantic versioning (`vMAJOR.MINOR.PATCH`).
+
+| Tag | State |
+|---|---|
+| `v0.1.0` | State presented at the AAS-Anwendertreffen 2026 |
+
+To run a tagged state, check out the tag, e.g. `git checkout v0.1.0`.
