@@ -195,3 +195,49 @@ def test_id_separators_map_iri_path_to_semantic_id():
 
     assert source.resolve("dppo:core:ComponentDPP").name == "Component DPP"
     assert source.suggest("component") == ["dppo:core:ComponentDPP"]
+
+EQUIVALENCE_TTL = b"""
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ex: <https://example.org/vocab/> .
+@prefix t: <https://example.org/types/> .
+@prefix q: <https://example.org/schema/> .
+
+ex:Metre a t:Unit ; rdfs:label "metre"@en ;
+    owl:sameAs <https://other.example/m> ;
+    q:ucumCode "m" .
+ex:Gram a t:Unit ; rdfs:label "gram"@en ;
+    q:ucumCode "  g  " , "" .
+ex:Second a t:Unit ; rdfs:label "second"@en .
+<https://other.example/s> skos:exactMatch ex:Second .
+ex:Thing a t:Other ; rdfs:label "thing"@en ;
+    owl:sameAs <https://other.example/thing> .
+"""
+
+
+def equivalence_source():
+    return make_source(
+        FakeFetch(EQUIVALENCE_TTL),
+        prefixes={
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+            "owl": "http://www.w3.org/2002/07/owl#",
+            "skos": "http://www.w3.org/2004/02/skos/core#",
+            "t": "https://example.org/types/",
+            "q": "https://example.org/schema/",
+        },
+        equivalence=["owl:sameAs", "skos:exactMatch"],
+        code_links={"q:ucumCode": "ucum:"},
+    )
+
+
+def test_equivalents_from_predicates_in_both_directions_and_codes():
+    assert equivalence_source().equivalents() == {
+        "ex:Metre": {"https://other.example/m", "ucum:m"},
+        "ex:Gram": {"ucum:g"},
+        "ex:Second": {"https://other.example/s"},
+    }
+
+
+def test_equivalents_empty_without_configuration():
+    assert make_source(FakeFetch(EQUIVALENCE_TTL)).equivalents() == {}

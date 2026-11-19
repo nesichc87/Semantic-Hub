@@ -24,6 +24,7 @@ Fetch = Callable[[str, str], bytes]
 class _Entry:
     labels: list[tuple[str, str | None]] = field(default_factory=list)
     descriptions: list[tuple[str, str | None]] = field(default_factory=list)
+    equivalents: set[str] = field(default_factory=set)
 
 
 class GenericRDFSource(SemanticSource):
@@ -78,6 +79,18 @@ class GenericRDFSource(SemanticSource):
         }
         return rank_matches(query, candidates)
 
+    def equivalents(self) -> dict[str, set[str]]:
+        """Equivalences per semantic ID.
+
+        Targets from ``equivalence`` are full IRIs, targets from
+        ``code_links`` are semantic IDs of another source.
+        """
+        return {
+            self._to_semantic_id(iri): set(entry.equivalents)
+            for iri, entry in self._get_entries().items()
+            if entry.equivalents
+        }
+
     # ---------- Loading ----------
 
     def _get_entries(self) -> dict[str, _Entry]:
@@ -129,6 +142,24 @@ class GenericRDFSource(SemanticSource):
             for key, values in found.items():
                 if self._pick(entries[key].descriptions) is None:
                     entries[key].descriptions.extend(values)
+
+        # Equivalences are read in both directions; targets are kept as full IRIs.
+        for predicate in self.config.equivalence:
+            predicate_iri = URIRef(self.config.expand(predicate))
+            for subject, target in graph.subject_objects(predicate_iri):
+                for own, other in ((subject, target), (target, subject)):
+                    entry = entries.get(str(own))
+                    if entry is not None and isinstance(other, URIRef):
+                        entry.equivalents.add(str(other))
+
+        # Literal codes become semantic IDs of another source, e.g. "m" -> "ucum:m".
+        for predicate, target_prefix in self.config.code_links.items():
+            predicate_iri = URIRef(self.config.expand(predicate))
+            for subject, value in graph.subject_objects(predicate_iri):
+                entry = entries.get(str(subject))
+                code = str(value).strip()
+                if entry is not None and isinstance(value, Literal) and code:
+                    entry.equivalents.add(target_prefix + code)
 
         return entries
 
