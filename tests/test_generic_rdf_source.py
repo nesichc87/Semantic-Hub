@@ -241,3 +241,51 @@ def test_equivalents_from_predicates_in_both_directions_and_codes():
 
 def test_equivalents_empty_without_configuration():
     assert make_source(FakeFetch(EQUIVALENCE_TTL)).equivalents() == {}
+
+PROPERTIES_TTL = b"""
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <https://example.org/vocab/> .
+
+ex:Item a owl:Class ; rdfs:label "Item"@en ;
+    rdfs:subClassOf ex:Part .
+ex:Part a owl:Class ; rdfs:label "Part"@en ;
+    rdfs:subClassOf ex:Item , [ a owl:Restriction ] .
+ex:Mass a owl:Class ; rdfs:label "Mass"@en .
+
+ex:number rdfs:domain ex:Item ; rdfs:range xsd:string ;
+    rdfs:comment "Number."@en .
+ex:mass rdfs:domain ex:Part ; rdfs:range ex:Mass .
+ex:alias rdfs:domain ex:Part ; rdfs:range <https://elsewhere.example/Alias> .
+"""
+
+
+def test_properties_inherited_first_with_compacted_ids_and_types():
+    source = make_source(
+        FakeFetch(PROPERTIES_TTL),
+        prefixes={
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+            "owl": "http://www.w3.org/2002/07/owl#",
+        },
+        types=["owl:Class"],
+        compact={"http://www.w3.org/2001/XMLSchema#": "xs:"},
+        properties={
+            "domain": "rdfs:domain",
+            "superclass": "rdfs:subClassOf",
+            "range": "rdfs:range",
+            "description": "rdfs:comment",
+        },
+    )
+
+    properties = source.resolve("ex:Part").properties
+
+    assert [
+        (p.semantic_id, p.name, p.description, p.data_type) for p in properties
+    ] == [
+        ("ex:number", "number", "Number.", "xs:string"),
+        ("ex:alias", "alias", None, "https://elsewhere.example/Alias"),
+        ("ex:mass", "mass", None, "ex:Mass"),
+    ]
+    assert properties[0].unit is None
+    assert properties[0].provenance == {"source": "example", "source_reference": "ex:number"}

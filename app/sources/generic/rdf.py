@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from rdflib import RDF, Graph, Literal, URIRef
 
-from app.models.semantic import SemanticConcept
+from app.models.semantic import SemanticConcept, SemanticProperty
 from app.sources.base import SemanticSource
 from app.sources.generic.config_schema import RDFSourceConfig
 from app.sources.ranking import rank_matches
@@ -54,7 +54,7 @@ class GenericRDFSource(SemanticSource):
             source=self.config.id,
             name=self._name(iri, entry),
             description=self._pick(entry.descriptions),
-            properties=[],
+            properties=self._properties(URIRef(iri)) if self.config.properties else [],
             provenance={
                 "source": self.config.id,
                 "source_reference": semantic_id,
@@ -182,6 +182,15 @@ class GenericRDFSource(SemanticSource):
         local = iri[len(self.config.namespace):]
         return local.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
 
+    def _compact(self, iri: str) -> str:
+        """Semantic ID for IRIs of this source, else a configured short form, else the IRI."""
+        if iri.startswith(self.config.namespace) and iri != self.config.namespace:
+            return self._to_semantic_id(iri)
+        for namespace, prefix in self.config.compact.items():
+            if iri.startswith(namespace):
+                return prefix + iri[len(namespace):]
+        return iri
+
     def _in_namespace(self, subject) -> bool:
         iri = str(subject)
         return (
@@ -189,6 +198,65 @@ class GenericRDFSource(SemanticSource):
             and iri.startswith(self.config.namespace)
             and iri != self.config.namespace
         )
+
+    # ---------- Properties via domain and inheritance ----------
+
+    def _properties(self, cls: URIRef) -> list[SemanticProperty]:
+        cfg = self.config.properties
+        graph = self._graph
+        domain = URIRef(self.config.expand(cfg.domain))
+        superclass = URIRef(self.config.expand(cfg.superclass))
+        range_predicate = URIRef(self.config.expand(cfg.range))
+        comment = URIRef(self.config.expand(cfg.description))
+
+        # Most general class first; blank nodes (e.g. owl:Restriction) are ignored.
+        ordered: list[URIRef] = []
+        visited: set[URIRef] = set()
+
+        def visit(current: URIRef) -> None:
+            if current in visited:
+                return
+            visited.add(current)
+            parents = sorted(
+                (p for p in graph.objects(current, superclass) if isinstance(p, URIRef)),
+                key=str,
+            )
+            for parent in parents:
+                visit(parent)
+            ordered.append(current)
+
+        visit(cls)
+
+        result: list[SemanticProperty] = []
+        seen: set[URIRef] = set()
+        for current in ordered:
+            for prop in sorted(graph.subjects(domain, current), key=str):
+                if prop in seen or not isinstance(prop, URIRef):
+                    continue
+                seen.add(prop)
+                ranges = sorted(
+                    str(r) for r in graph.objects(prop, range_predicate) if isinstance(r, URIRef)
+                )
+                comments = [
+                    (self._text(c), c.language)
+                    for c in graph.objects(prop, comment)
+                    if isinstance(c, Literal)
+                ]
+                semantic_id = self._compact(str(prop))
+                result.append(
+                    SemanticProperty(
+                        semantic_id=semantic_id,
+                        name=_last_segment(str(prop)),
+                        description=self._pick(comments),
+                        data_type=self._compact(ranges[0]) if ranges else None,
+                        unit=None,
+                        provenance={
+                            "source": self.config.id,
+                            "source_reference": semantic_id,
+                        },
+                    )
+                )
+        return result
 
     # ---------- Helpers ----------
 
@@ -209,3 +277,6 @@ class GenericRDFSource(SemanticSource):
         if self.config.name_from == "local_name":
             return self._short_name(iri)
         return self._pick(entry.labels) or self._short_name(iri)
+
+def _last_segment(iri: str) -> str:
+    return iri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
