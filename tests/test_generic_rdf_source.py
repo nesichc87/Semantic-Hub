@@ -34,24 +34,23 @@ class FakeFetch:
         return self.data
 
 
-def make_source(fetch):
-    config = RDFSourceConfig.model_validate(
-        {
-            "id": "example",
-            "prefix": "ex:",
-            "namespace": "https://example.org/vocab/",
-            "locations": [LOCATION],
-            "format": "turtle",
-            "prefixes": {
-                "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-                "t": "https://example.org/types/",
-            },
-            "types": ["t:Unit"],
-            "label": ["rdfs:label"],
-            "description": ["rdfs:comment"],
-        }
-    )
-    return GenericRDFSource(config, fetch)
+def make_source(fetch, **overrides):
+    raw = {
+        "id": "example",
+        "prefix": "ex:",
+        "namespace": "https://example.org/vocab/",
+        "locations": [LOCATION],
+        "format": "turtle",
+        "prefixes": {
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+            "t": "https://example.org/types/",
+        },
+        "types": ["t:Unit"],
+        "label": ["rdfs:label"],
+        "description": ["rdfs:comment"],
+    }
+    raw.update(overrides)
+    return GenericRDFSource(RDFSourceConfig.model_validate(raw), fetch)
 
 
 def test_resolves_concept_with_english_label_and_normalized_description():
@@ -138,3 +137,61 @@ def test_suggest_with_empty_query_does_not_load():
 
     assert make_source(fetch).suggest("") == []
     assert fetch.calls == []
+
+NAMES_TTL = b"""
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <https://example.org/vocab/> .
+@prefix t: <https://example.org/types/> .
+
+ex:Metre a t:Unit ; rdfs:label "meter"@en .
+ex:Gram a t:Unit ; rdfs:label "Gramm"@de .
+ex:Second a t:Unit .
+"""
+
+
+def test_name_from_label_falls_back_to_local_name():
+    source = make_source(FakeFetch(NAMES_TTL))
+
+    assert source.resolve("ex:Gram").name == "Gram"
+    with pytest.raises(ValueError):
+        source.resolve("ex:Second")
+
+
+def test_name_from_label_or_local_keeps_concepts_without_label():
+    source = make_source(FakeFetch(NAMES_TTL), name_from="label_or_local")
+
+    assert source.resolve("ex:Second").name == "Second"
+    assert source.resolve("ex:Metre").name == "meter"
+
+
+def test_name_from_local_name_ignores_labels():
+    source = make_source(FakeFetch(NAMES_TTL), name_from="local_name")
+
+    assert source.resolve("ex:Metre").name == "Metre"
+    assert source.suggest("meter") == []
+
+
+DPPO_LIKE_TTL = b"""
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix core: <https://example.org/onto/core/> .
+
+core:ComponentDPP a owl:Class ; rdfs:label "Component DPP"@en .
+"""
+
+
+def test_id_separators_map_iri_path_to_semantic_id():
+    source = make_source(
+        FakeFetch(DPPO_LIKE_TTL),
+        prefix="dppo:",
+        namespace="https://example.org/onto/",
+        prefixes={
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+            "owl": "http://www.w3.org/2002/07/owl#",
+        },
+        types=["owl:Class"],
+        id_separators={"/": ":"},
+    )
+
+    assert source.resolve("dppo:core:ComponentDPP").name == "Component DPP"
+    assert source.suggest("component") == ["dppo:core:ComponentDPP"]

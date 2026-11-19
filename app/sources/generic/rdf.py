@@ -43,14 +43,15 @@ class GenericRDFSource(SemanticSource):
         if not self.can_resolve(semantic_id):
             raise ValueError(f"Unknown semantic ID: {semantic_id}")
 
-        entry = self._get_entries().get(self._to_iri(semantic_id))
+        iri = self._to_iri(semantic_id)
+        entry = self._get_entries().get(iri)
         if entry is None:
             raise ValueError(f"Unknown semantic ID: {semantic_id}")
 
         return SemanticConcept(
             semantic_id=semantic_id,
             source=self.config.id,
-            name=self._pick(entry.labels),
+            name=self._name(iri, entry),
             description=self._pick(entry.descriptions),
             properties=[],
             provenance={
@@ -63,10 +64,15 @@ class GenericRDFSource(SemanticSource):
         if not query.strip():
             return []
 
+        use_labels = self.config.name_from != "local_name"
         candidates = {
             self._to_semantic_id(iri): [
-                self._local_part(iri),
-                *(text for text, lang in entry.labels if lang in self.config.languages),
+                self._short_name(iri),
+                *(
+                    text
+                    for text, lang in entry.labels
+                    if use_labels and lang in self.config.languages
+                ),
             ]
             for iri, entry in self._get_entries().items()
         }
@@ -97,6 +103,10 @@ class GenericRDFSource(SemanticSource):
                     if self._in_namespace(subject):
                         allowed.add(str(subject))
 
+        if self.config.name_from != "label" and allowed is not None:
+            for key in allowed:
+                entries.setdefault(key, _Entry())
+
         for predicate in self.config.label:
             for subject, value in graph.subject_objects(URIRef(self.config.expand(predicate))):
                 key = str(subject)
@@ -125,13 +135,21 @@ class GenericRDFSource(SemanticSource):
     # ---------- Identifiers ----------
 
     def _to_iri(self, semantic_id: str) -> str:
-        return self.config.namespace + semantic_id[len(self.config.prefix):]
+        local = semantic_id[len(self.config.prefix):]
+        for original, replacement in self.config.id_separators.items():
+            local = local.replace(replacement, original)
+        return self.config.namespace + local
 
     def _to_semantic_id(self, iri: str) -> str:
-        return self.config.prefix + self._local_part(iri)
+        local = iri[len(self.config.namespace):]
+        for original, replacement in self.config.id_separators.items():
+            local = local.replace(original, replacement)
+        return self.config.prefix + local
 
-    def _local_part(self, iri: str) -> str:
-        return iri[len(self.config.namespace):]
+    def _short_name(self, iri: str) -> str:
+        """Last segment of the IRI after the namespace, e.g. "ComponentDPP"."""
+        local = iri[len(self.config.namespace):]
+        return local.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
 
     def _in_namespace(self, subject) -> bool:
         iri = str(subject)
@@ -155,3 +173,8 @@ class GenericRDFSource(SemanticSource):
             if matches:
                 return matches[0]
         return None
+
+    def _name(self, iri: str, entry: _Entry) -> str:
+        if self.config.name_from == "local_name":
+            return self._short_name(iri)
+        return self._pick(entry.labels) or self._short_name(iri)
