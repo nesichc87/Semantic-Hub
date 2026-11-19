@@ -245,11 +245,15 @@ Semantic-Hub/
 │   │   │   ├── service.py          # resolution and search of QUDT units
 │   │   │   ├── mapper.py           # maps resolved units to the internal model
 │   │   │   └── source.py           # QUDT semantic source
-│   │   └── dppo/
-│   │       ├── client.py           # loading of the DPPO modules (Turtle) from a URL template
-│   │       ├── service.py          # resolution and search of DPPO classes across modules
-│   │       ├── mapper.py           # maps resolved classes to the internal model
-│   │       └── source.py           # DPPO semantic source
+│   │   ├── dppo/
+│   │   │   ├── client.py           # loading of the DPPO modules (Turtle) from a URL template
+│   │   │   ├── service.py          # resolution and search of DPPO classes across modules
+│   │   │   ├── mapper.py           # maps resolved classes to the internal model
+│   │   │   └── source.py           # DPPO semantic source
+│   │   └── generic/                # source types defined by configuration only
+│   │       ├── config_schema.py    # configuration schema of the RDF source type (Pydantic)
+│   │       ├── factory.py          # builds a source from a catalog entry
+│   │       └── rdf.py              # generic RDF source type
 │   │
 │   ├── static/
 │   │   ├── swagger/                # local copy of Swagger UI (swagger-ui-dist 5.17.14, Apache License 2.0)
