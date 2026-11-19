@@ -4,10 +4,10 @@
 
 Developed and tested with Python 3.13.
 
-Install the Python dependencies:
+Install the Python dependencies, including the test tools:
 
 ```
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 Start the development server:
