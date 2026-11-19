@@ -119,6 +119,35 @@ Semantic identifiers use the form `dppo:<module>:<LocalName>`, e.g. `dppo:dpp-co
 
 **License:** not yet clarified. The ontology files refer to a license file that could not be retrieved. No DPPO data is included in this repository.
 
+## Generic RDF source type (in development)
+
+A source can also be defined by configuration only, without source-specific code. The generic RDF source type (`app/sources/generic/`) reads Turtle, JSON-LD or RDF/XML. `create_source` builds it from a catalog entry of the form `{"type": "rdf", "config": {...}}`. It is not yet used by the API; the sources above are unchanged.
+
+**Configuration (main options):**
+
+- `id`, `prefix`, `namespace`, `locations`, `format` (`turtle`, `json-ld` or `xml`), `license`
+- `prefixes`: prefixes for the predicates and types used in the configuration
+- `types`: only subjects with one of these `rdf:type`s become concepts
+- `label`, `description`: predicates for names and definitions, in order of priority
+- `languages` (default: English, then language-neutral), `language_order` (`strict` or `merged`), `whitespace` (`normalize` or `strip`)
+- `name_from`: `label`, `label_or_local` or `local_name`
+- `id_separators`: e.g. `{"/": ":"}` to turn IRI path segments into identifier segments
+- `properties`: predicates for domain, superclass, range and description, used to collect inherited properties
+- `compact`: short forms for IRIs of other namespaces, e.g. XSD to `xs:`
+- `equivalence`, `code_links`: equivalences to other sources, e.g. `owl:sameAs`, or literal codes such as `qudt:ucumCode "m"` to `ucum:m`
+
+**Design notes:**
+
+- Predicates are full IRIs or prefixed names. They are evaluated as single predicates, never as SPARQL, so a configuration cannot inject queries. Unknown options and unresolvable predicates are rejected.
+- Data is read through an injected fetch function. Loading errors are not cached.
+- `resolve` is exact and case-sensitive. Suggestions are ranked like those of the other sources.
+
+**Current limitations:**
+
+- Not yet used by the API; there is no source catalog yet.
+- Property paths and query-based descriptions are not supported.
+- Full IRIs are not accepted as identifiers.
+
 ## ECLASS (under evaluation)
 
 The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
