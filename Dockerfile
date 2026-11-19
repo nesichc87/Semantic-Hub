@@ -5,9 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Installs everything in requirements.txt, including the test tools
-# (pytest, httpx2). Installed before the code is copied so that this
-# layer stays cached.
+# Installs runtime dependencies only; test tools are in
+# requirements-dev.txt. Installed before the code is copied so that
+# this layer stays cached.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

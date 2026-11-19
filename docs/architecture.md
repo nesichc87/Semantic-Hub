@@ -268,6 +268,7 @@ Semantic-Hub/
 ├── docs/                           # documentation (architecture, sources, API, development)
 ├── tests/                          # pytest test suite
 ├── LICENSE                         # Apache License 2.0
+├── requirements-dev.txt
 ├── requirements.txt
 └── README.md
 ```
