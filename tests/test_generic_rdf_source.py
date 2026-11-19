@@ -289,3 +289,23 @@ def test_properties_inherited_first_with_compacted_ids_and_types():
     ]
     assert properties[0].unit is None
     assert properties[0].provenance == {"source": "example", "source_reference": "ex:number"}
+
+LANGUAGE_TTL = b"""
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <https://example.org/vocab/> .
+@prefix t: <https://example.org/types/> .
+
+ex:Metre a t:Unit ; rdfs:label "metre"@en, "Metre", "Meter"@de .
+"""
+
+
+def test_language_order_strict_prefers_first_language():
+    source = make_source(FakeFetch(LANGUAGE_TTL))
+
+    assert source.resolve("ex:Metre").name == "metre"
+
+
+def test_language_order_merged_treats_languages_equally():
+    source = make_source(FakeFetch(LANGUAGE_TTL), language_order="merged")
+
+    assert source.resolve("ex:Metre").name == "Metre"

@@ -266,7 +266,11 @@ class GenericRDFSource(SemanticSource):
         return " ".join(str(literal).split())
 
     def _pick(self, values: list[tuple[str, str | None]]) -> str | None:
+        """Pick one text by language; empty texts never count."""
         values = [(text, lang) for text, lang in values if text]
+        if self.config.language_order == "merged":
+            matches = sorted(text for text, lang in values if lang in self.config.languages)
+            return matches[0] if matches else None
         for language in self.config.languages:
             matches = sorted(text for text, lang in values if lang == language)
             if matches:
