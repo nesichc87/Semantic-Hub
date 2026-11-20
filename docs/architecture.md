@@ -251,9 +251,10 @@ Semantic-Hub/
 │   │   │   ├── mapper.py           # maps resolved classes to the internal model
 │   │   │   └── source.py           # DPPO semantic source
 │   │   └── generic/                # source types defined by configuration only
-│   │       ├── config_schema.py    # configuration schema of the RDF source type (Pydantic)
+│   │       ├── config_schema.py    # configuration schemas of the RDF and XSD source types (Pydantic)
 │   │       ├── factory.py          # builds a source from a catalog entry
-│   │       └── rdf.py              # generic RDF source type
+│   │       ├── rdf.py              # generic RDF source type
+│   │       └── xsd.py              # generic XSD source type (parsed with defusedxml)
 │   │
 │   ├── static/
 │   │   ├── swagger/                # local copy of Swagger UI (swagger-ui-dist 5.17.14, Apache License 2.0)

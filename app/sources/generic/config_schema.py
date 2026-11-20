@@ -1,4 +1,4 @@
-"""Configuration schema for the generic RDF source type.
+"""Configuration schemas for the generic source types (RDF, XSD).
 
 A source is defined by configuration only. Predicates are given as
 full IRIs or as prefixed names that are expanded with ``prefixes``.
@@ -80,3 +80,26 @@ class RDFSourceConfig(BaseModel):
         for name in names:
             self.expand(name)
         return self
+
+
+class XSDSourceConfig(BaseModel):
+    """Configuration of one generic XSD source.
+
+    Concepts are the named global types of the main schema (and, with
+    ``follow``, of included or imported schemas). ``prefix`` applies to the
+    target namespace of the main schema; ``import_prefixes`` maps further
+    target namespaces to prefixes.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1)
+    prefix: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+    license: str | None = None
+    kinds: list[Literal["complexType", "simpleType"]] = Field(
+        default_factory=lambda: ["complexType", "simpleType"]
+    )
+    documentation: bool = False
+    follow: bool = False
+    import_prefixes: dict[str, str] = Field(default_factory=dict)
