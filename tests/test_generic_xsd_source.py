@@ -131,3 +131,86 @@ def test_failed_load_is_not_cached():
 def test_invalid_or_forbidden_xml_raises_runtime_error(data):
     with pytest.raises(RuntimeError):
         make_source(FakeFetch({LOCATION: data})).resolve("m:Wire")
+
+import logging
+
+BASE = "https://example.org/schemas/"
+
+FOLLOW_MAIN = b"""<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main">
+  <xs:include schemaLocation="part.xsd"/>
+  <xs:import namespace="urn:units" schemaLocation="sub/units.xsd"/>
+  <xs:import namespace="urn:missing" schemaLocation="missing.xsd"/>
+  <xs:import namespace="urn:nolocation"/>
+  <xs:complexType name="Wire">
+    <xs:sequence><xs:element name="Id" type="xs:ID"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>"""
+
+PART = b"""<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main">
+  <xs:include schemaLocation="main.xsd"/>
+  <xs:simpleType name="Colour"><xs:restriction base="xs:string"/></xs:simpleType>
+</xs:schema>"""
+
+UNITS = b"""<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:units">
+  <xs:simpleType name="LengthValue"><xs:restriction base="xs:double"/></xs:simpleType>
+</xs:schema>"""
+
+FOLLOW_FILES = {
+    BASE + "main.xsd": FOLLOW_MAIN,
+    BASE + "part.xsd": PART,
+    BASE + "sub/units.xsd": UNITS,
+}
+
+
+def follow_source(fetch, **overrides):
+    raw = {
+        "location": BASE + "main.xsd",
+        "follow": True,
+        "import_prefixes": {"urn:units": "u:"},
+    }
+    raw.update(overrides)
+    return make_source(fetch, **raw)
+
+
+def test_follow_loads_includes_and_imports_once():
+    fetch = FakeFetch(FOLLOW_FILES)
+    source = follow_source(fetch)
+
+    assert source.resolve("m:Colour").data_type == "xs:string"
+    assert source.resolve("u:LengthValue").data_type == "xs:double"
+    assert [location for location, _ in fetch.calls] == [
+        BASE + "main.xsd",
+        BASE + "part.xsd",
+        BASE + "sub/units.xsd",
+        BASE + "missing.xsd",
+    ]
+
+
+def test_without_follow_only_main_schema_is_loaded():
+    fetch = FakeFetch(FOLLOW_FILES)
+    source = follow_source(fetch, follow=False)
+
+    with pytest.raises(ValueError):
+        source.resolve("m:Colour")
+    assert fetch.calls == [(BASE + "main.xsd", "xsd")]
+
+
+def test_imported_namespace_without_prefix_is_loaded_but_not_resolvable():
+    fetch = FakeFetch(FOLLOW_FILES)
+    source = follow_source(fetch, import_prefixes={})
+
+    assert source.suggest("length") == []
+    assert (BASE + "sub/units.xsd", "xsd") in fetch.calls
+    assert not source.can_resolve("u:LengthValue")
+
+
+def test_failed_or_unlocated_import_is_skipped_and_logged(caplog):
+    with caplog.at_level(logging.WARNING):
+        concept = follow_source(FakeFetch(FOLLOW_FILES)).resolve("m:Wire")
+
+    assert concept.name == "Wire"
+    assert "missing.xsd" in caplog.text
+    assert "urn:nolocation" in caplog.text

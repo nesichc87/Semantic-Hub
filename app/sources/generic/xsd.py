@@ -7,7 +7,9 @@ of its restriction, one level only.
 """
 
 import io
+import logging
 from dataclasses import dataclass
+from urllib.parse import urljoin
 from xml.etree.ElementTree import Element, ParseError
 
 from defusedxml import ElementTree as SafeET
@@ -21,7 +23,7 @@ from app.sources.ranking import rank_matches
 
 
 XS_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
-
+logger = logging.getLogger(__name__)
 
 def _q(tag: str) -> str:
     return f"{{{XS_NAMESPACE}}}{tag}"
@@ -92,20 +94,26 @@ class GenericXSDSource(SemanticSource):
     def _get_types(self) -> dict[tuple[str | None, str], _XsdType]:
         if self._types is None:
             types: dict[tuple[str | None, str], _XsdType] = {}
-            target_namespace = self._load_schema(self.config.location, types)
+            target_namespace = self._load_schema(self.config.location, types, set())
             # Assigned only after a successful load, so errors are not cached.
             self._prefixes = {target_namespace: self.config.prefix, **self.config.import_prefixes}
             self._types = types
         return self._types
 
-    def _load_schema(self, location: str, types: dict) -> str | None:
-        """Parse one schema, collect its named types, return its target namespace."""
+    def _load_schema(self, location: str, types: dict, seen: set[str]) -> str | None:
+        """Parse one schema, collect its named types, return its target namespace.
+
+        With ``follow``, included and imported schemas are loaded as well.
+        Each location is loaded once. A failing include or import is skipped
+        and logged; only a failure of the main schema is raised.
+        """
+        seen.add(location)
         raw = self._fetch(location, "xsd")
         nsmap: dict[str, str] = {}
         root: Element | None = None
         try:
             for event, item in SafeET.iterparse(
-                io.BytesIO(raw), events=("start-ns", "start"), forbid_dtd=True
+                    io.BytesIO(raw), events=("start-ns", "start"), forbid_dtd=True
             ):
                 if event == "start-ns":
                     prefix, uri = item
@@ -127,6 +135,28 @@ class GenericXSDSource(SemanticSource):
                         node=node,
                         nsmap=nsmap,
                     )
+
+        if self.config.follow:
+            for tag in ("include", "import"):
+                for reference in root.findall(_q(tag)):
+                    schema_location = reference.get("schemaLocation")
+                    if not schema_location:
+                        logger.warning(
+                            "Skipped %s of namespace %s without schemaLocation in %s",
+                            tag, reference.get("namespace"), location,
+                        )
+                        continue
+                    referenced = urljoin(location, schema_location)
+                    if referenced in seen:
+                        continue
+                    try:
+                        self._load_schema(referenced, types, seen)
+                    except RuntimeError:
+                        logger.warning(
+                            "Skipped %s %s referenced in %s",
+                            tag, referenced, location, exc_info=True,
+                        )
+
         return target_namespace
 
     # ---------- Properties ----------
