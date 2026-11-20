@@ -3,8 +3,9 @@
 from collections.abc import Mapping
 
 from app.sources.base import SemanticSource
-from app.sources.generic.config_schema import RDFSourceConfig
+from app.sources.generic.config_schema import RDFSourceConfig, XSDSourceConfig
 from app.sources.generic.rdf import Fetch, GenericRDFSource
+from app.sources.generic.xsd import GenericXSDSource
 
 
 def create_source(entry: Mapping, fetch: Fetch) -> SemanticSource:
@@ -19,4 +20,6 @@ def create_source(entry: Mapping, fetch: Fetch) -> SemanticSource:
         raise ValueError("Catalog entry has no 'config'")
     if source_type == "rdf":
         return GenericRDFSource(RDFSourceConfig.model_validate(config), fetch)
+    if source_type == "xsd":
+        return GenericXSDSource(XSDSourceConfig.model_validate(config), fetch)
     raise ValueError(f"Unknown source type: {source_type!r}")

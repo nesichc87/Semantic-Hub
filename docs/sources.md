@@ -148,6 +148,32 @@ A source can also be defined by configuration only, without source-specific code
 - Property paths and query-based descriptions are not supported.
 - Full IRIs are not accepted as identifiers.
 
+## Generic XSD source type (in development)
+
+An XML Schema can also be added by configuration only. The generic XSD source type (`app/sources/generic/xsd.py`) is built by `create_source` from a catalog entry of the form `{"type": "xsd", "config": {...}}`. It is not yet used by the API; the KBL source above is unchanged.
+
+**Configuration:**
+
+- `id`, `prefix` (for the target namespace of the main schema), `location` (the main schema), `license`
+- `kinds`: which named global types become concepts (`complexType`, `simpleType`; default both)
+- `documentation`: take descriptions from `xs:annotation/xs:documentation` (default off)
+- `follow`: also load schemas referenced by `xs:include` and `xs:import` (default off)
+- `import_prefixes`: prefixes for the target namespaces of imported schemas
+
+**Behaviour:**
+
+- Complex types list their elements as properties, including elements inherited via `complexContent/extension`; inherited properties come first. Property identifiers have the form `<type id>:<element name>`, as for KBL. Elements without a name (`ref=...`) are skipped.
+- Simple types report the base of their restriction as data type, one level only.
+- Type names are kept as written in the schema (e.g. `xs:string`).
+- XML is parsed with defusedxml; documents with a DTD are rejected. Invalid or forbidden documents are reported as an unavailable source.
+- Relative `schemaLocation` values are resolved against the referencing schema. Each schema is loaded once. A failing include or import is skipped and logged.
+
+**Current limitations:**
+
+- Not yet used by the API; there is no source catalog yet.
+- Imported namespaces without an entry in `import_prefixes` are loaded but not resolvable.
+- Restriction chains of simple types are not followed to the built-in base type.
+
 ## ECLASS (under evaluation)
 
 The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
