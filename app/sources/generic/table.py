@@ -9,7 +9,10 @@ RuntimeError (reported as an unavailable source).
 import csv
 import io
 import logging
+import zipfile
 from dataclasses import dataclass
+
+from openpyxl import load_workbook
 
 from app.models.semantic import SemanticConcept
 from app.sources.base import SemanticSource
@@ -21,6 +24,7 @@ from app.sources.ranking import rank_matches
 logger = logging.getLogger(__name__)
 
 MAX_ROWS = 200_000
+MAX_UNPACKED_BYTES = 100 * 1024 * 1024
 
 
 @dataclass
@@ -100,7 +104,45 @@ class GenericTableSource(SemanticSource):
                 if len(rows) > MAX_ROWS:
                     raise RuntimeError(f"Table has more than {MAX_ROWS} rows: {self.config.location}")
             return rows
-        raise NotImplementedError("Excel files are added in the next step")
+        return self._read_xlsx(raw)
+
+    def _read_xlsx(self, raw: bytes) -> list[list[str]]:
+        location = self.config.location
+
+        # An xlsx file is a ZIP archive: check the declared unpacked size first.
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                unpacked = sum(info.file_size for info in archive.infolist())
+        except zipfile.BadZipFile as exc:
+            raise RuntimeError(f"Table is not a valid xlsx file: {location}") from exc
+        if unpacked > MAX_UNPACKED_BYTES:
+            raise RuntimeError(
+                f"Table is larger than {MAX_UNPACKED_BYTES} bytes when unpacked: {location}"
+            )
+
+        try:
+            workbook = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        except Exception as exc:
+            raise RuntimeError(f"Table is not a valid xlsx file: {location}") from exc
+
+        try:
+            if self.config.sheet is None:
+                worksheet = workbook.worksheets[0]
+            elif self.config.sheet in workbook.sheetnames:
+                worksheet = workbook[self.config.sheet]
+            else:
+                raise RuntimeError(
+                    f"Sheet '{self.config.sheet}' not found in {location} "
+                    f"(available: {', '.join(workbook.sheetnames)})"
+                )
+            rows = []
+            for values in worksheet.iter_rows(values_only=True):
+                rows.append([_cell_text(value) for value in values])
+                if len(rows) > MAX_ROWS:
+                    raise RuntimeError(f"Table has more than {MAX_ROWS} rows: {location}")
+            return rows
+        finally:
+            workbook.close()
 
     def _index(self, table: list[list[str]]) -> dict[str, _Row]:
         header_row = self.config.header_row
@@ -171,3 +213,11 @@ def _guess_delimiter(text: str) -> str:
         if score > best_score:
             best, best_score = delimiter, score
     return best
+
+def _cell_text(value) -> str:
+    """Cell value as text; whole numbers without ".0" (Excel stores numbers as floats)."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)

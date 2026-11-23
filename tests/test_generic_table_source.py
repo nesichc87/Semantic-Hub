@@ -131,3 +131,89 @@ def test_too_many_rows_raise_runtime_error(monkeypatch):
 
     with pytest.raises(RuntimeError):
         make_source(FakeFetch(CSV)).resolve("t:m")
+
+import io
+
+from openpyxl import Workbook
+
+LOCATION_XLSX = "https://example.org/units.xlsx"
+
+
+def xlsx_bytes(sheets: dict[str, list[list]]) -> bytes:
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    for title, rows in sheets.items():
+        sheet = workbook.create_sheet(title)
+        for row in rows:
+            sheet.append(row)
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+UNITS_ROWS = [
+    ["Copyright note, not a header"],
+    ["Code", "Name", "Description"],
+    ["mg/dL", "milligram per  deciliter", None],
+    [2.0, "two", "Number used as code"],
+    [None, None, None],
+]
+
+XLSX = xlsx_bytes({"Notes": [["Nothing here"]], "Units": UNITS_ROWS})
+
+
+def make_xlsx_source(fetch, **overrides):
+    raw = {
+        "location": LOCATION_XLSX,
+        "format": "xlsx",
+        "sheet": "Units",
+        "columns": {"id": "Code", "name": "Name", "description": "Description"},
+    }
+    raw.update(overrides)
+    return make_source(fetch, **raw)
+
+
+def test_xlsx_rows_from_configured_sheet():
+    fetch = FakeFetch(XLSX)
+    source = make_xlsx_source(fetch)
+
+    assert source.resolve("t:mg/dL").name == "milligram per deciliter"
+    assert source.resolve("t:mg/dL").description is None
+    assert source.resolve("t:2").name == "two"
+    assert fetch.calls == [(LOCATION_XLSX, "xlsx")]
+
+
+def test_xlsx_without_sheet_uses_first_sheet():
+    source = make_xlsx_source(FakeFetch(xlsx_bytes({"Units": UNITS_ROWS})), sheet=None)
+
+    assert source.resolve("t:mg/dL").name == "milligram per deciliter"
+
+
+def test_xlsx_unknown_sheet_raises_runtime_error():
+    with pytest.raises(RuntimeError, match="Sheet 'Missing'"):
+        make_xlsx_source(FakeFetch(XLSX), sheet="Missing").resolve("t:2")
+
+
+def test_xlsx_that_is_not_a_zip_raises_runtime_error():
+    with pytest.raises(RuntimeError, match="not a valid xlsx"):
+        make_xlsx_source(FakeFetch(b"not a zip file")).resolve("t:2")
+
+
+def test_xlsx_too_large_when_unpacked_raises_runtime_error(monkeypatch):
+    monkeypatch.setattr(table_module, "MAX_UNPACKED_BYTES", 100)
+
+    with pytest.raises(RuntimeError, match="unpacked"):
+        make_xlsx_source(FakeFetch(XLSX)).resolve("t:2")
+
+
+def test_xlsx_too_many_rows_raises_runtime_error(monkeypatch):
+    monkeypatch.setattr(table_module, "MAX_ROWS", 2)
+
+    with pytest.raises(RuntimeError, match="more than"):
+        make_xlsx_source(FakeFetch(XLSX)).resolve("t:2")
+
+
+def test_openpyxl_uses_defusedxml():
+    from openpyxl.xml import DEFUSEDXML
+
+    assert DEFUSEDXML is True
