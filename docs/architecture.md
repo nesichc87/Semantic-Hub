@@ -251,9 +251,10 @@ Semantic-Hub/
 │   │   │   ├── mapper.py           # maps resolved classes to the internal model
 │   │   │   └── source.py           # DPPO semantic source
 │   │   └── generic/                # source types defined by configuration only
-│   │       ├── config_schema.py    # configuration schemas of the RDF and XSD source types (Pydantic)
+│   │       ├── config_schema.py    # configuration schemas of the RDF, XSD and table source types (Pydantic)
 │   │       ├── factory.py          # builds a source from a catalog entry
 │   │       ├── rdf.py              # generic RDF source type
+│   │       ├── table.py            # generic table source type (CSV, xlsx via openpyxl)
 │   │       └── xsd.py              # generic XSD source type (parsed with defusedxml)
 │   │
 │   ├── static/

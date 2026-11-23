@@ -1,4 +1,4 @@
-"""Configuration schemas for the generic source types (RDF, XSD).
+"""Configuration schemas for the generic source types (RDF, XSD, table).
 
 A source is defined by configuration only. Predicates are given as
 full IRIs or as prefixed names that are expanded with ``prefixes``.
@@ -103,3 +103,34 @@ class XSDSourceConfig(BaseModel):
     documentation: bool = False
     follow: bool = False
     import_prefixes: dict[str, str] = Field(default_factory=dict)
+
+
+class TableColumns(BaseModel):
+    """Column mapping: header texts of the columns that carry each meaning."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1)
+    name: str | None = None
+    description: str | None = None
+    equivalence: str | None = None
+
+
+class TableSourceConfig(BaseModel):
+    """Configuration of one generic table source (one row per concept).
+
+    ``header_row`` is 1-based. ``sheet`` applies to xlsx only (default:
+    first sheet), ``delimiter`` to csv only (default: detected).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1)
+    prefix: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+    format: Literal["xlsx", "csv"]
+    license: str | None = None
+    sheet: str | None = None
+    header_row: int = Field(default=1, ge=1)
+    delimiter: str | None = Field(default=None, min_length=1, max_length=1)
+    columns: TableColumns
