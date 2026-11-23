@@ -174,6 +174,33 @@ An XML Schema can also be added by configuration only. The generic XSD source ty
 - Imported namespaces without an entry in `import_prefixes` are loaded but not resolvable.
 - Restriction chains of simple types are not followed to the built-in base type.
 
+## Generic table source type (in development)
+
+A table with one row per concept (Excel `.xlsx` or CSV) can also be added by configuration only. The generic table source type (`app/sources/generic/table.py`) is built by `create_source` from a catalog entry of the form `{"type": "table", "config": {...}}`. It is not yet used by the API.
+
+**Configuration:**
+
+- `id`, `prefix`, `location`, `format` (`xlsx` or `csv`), `license`
+- `sheet`: worksheet name (xlsx only; default: first sheet)
+- `header_row`: row with the column headers, counted from 1 (default 1)
+- `delimiter`: one character (csv only; default: detected)
+- `columns`: header texts of the columns for `id` (required), `name`, `description` and `equivalence`
+
+**Behaviour:**
+
+- The identifier is taken from the `id` column and only stripped, so codes stay exactly as in the source. Names and descriptions are whitespace-normalized; without a name, the identifier is used.
+- Rows without an identifier are skipped. For duplicate identifiers the first row applies; the others are skipped and logged.
+- The equivalence column may hold several entries separated by spaces or `;`.
+- CSV must be UTF-8. Whole numbers in Excel cells are read without `.0`.
+- An xlsx file is rejected if its declared unpacked size exceeds 100 MB. XML inside xlsx files is parsed by openpyxl using defusedxml.
+- An unusable table (unknown column or sheet, header row outside the table, no rows, more than 200,000 rows, invalid file) is reported as an unavailable source.
+
+**Current limitations:**
+
+- Not yet used by the API; there is no source catalog yet.
+- Merged cells and multi-row headers are not supported.
+- The unpacked size check relies on the sizes declared in the ZIP directory.
+
 ## ECLASS (under evaluation)
 
 The use of the ECLASS 16.0 Asset is being evaluated. The integration approach and the licensing conditions are still to be clarified. ECLASS data will not be included in this repository unless the license permits it.
