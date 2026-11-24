@@ -102,11 +102,11 @@ dppo_source = DPPOSemanticSource(dppo_service)
 
 registry = SemanticRegistry()
 
-registry.register(MockSemanticSource())
-registry.register(kbl_source)
-registry.register(vec_source)
-registry.register(qudt_source)
-registry.register(dppo_source)
+registry.register("mock", MockSemanticSource())
+registry.register("kbl", kbl_source)
+registry.register("vec", vec_source)
+registry.register("qudt", qudt_source)
+registry.register("dppo", dppo_source)
 
 resolver = SemanticResolver(registry)
 

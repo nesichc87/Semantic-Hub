@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from app.sources.base import SemanticSource
 
@@ -7,14 +8,30 @@ logger = logging.getLogger(__name__)
 
 
 class SemanticRegistry:
-    def __init__(self):
-        self._sources: list[SemanticSource] = []
+    """Registered semantic sources, each identified by a source ID.
 
-    def register(self, source: SemanticSource):
-        self._sources.append(source)
+    The sources are kept in an immutable tuple. A change builds a new
+    tuple under a lock and swaps it in; readers work on the tuple that
+    was current when they started, without locking.
+    """
+
+    def __init__(self):
+        self._sources: tuple[tuple[str, SemanticSource], ...] = ()
+        self._lock = threading.Lock()
+
+    def register(self, source_id: str, source: SemanticSource) -> None:
+        """Append a source. Raises ValueError if the source ID is already registered."""
+        with self._lock:
+            if any(existing == source_id for existing, _ in self._sources):
+                raise ValueError(f"Source ID already registered: {source_id}")
+            self._sources = (*self._sources, (source_id, source))
+
+    def source_ids(self) -> list[str]:
+        """Source IDs in registration order."""
+        return [source_id for source_id, _ in self._sources]
 
     def get_source(self, semantic_id: str) -> SemanticSource | None:
-        for source in self._sources:
+        for _, source in self._sources:
             if source.can_resolve(semantic_id):
                 return source
 
@@ -35,13 +52,13 @@ class SemanticRegistry:
 
         results = []
 
-        for source in self._sources:
+        for source_id, source in self._sources:
             try:
                 results.extend(source.suggest(query))
             except Exception:
                 logger.warning(
-                    "Suggestions from %s failed and were skipped",
-                    type(source).__name__,
+                    "Suggestions from source '%s' failed and were skipped",
+                    source_id,
                     exc_info=True,
                 )
 
