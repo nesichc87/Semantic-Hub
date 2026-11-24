@@ -141,19 +141,26 @@ The resolver is intentionally separated from the HTTP layer so that the resoluti
 
 ## Registry
 
-The Registry maintains the available semantic sources.
+The Registry maintains the available semantic sources, each identified by a source ID.
 
-A source is registered with the Registry:
+Sources can be registered, replaced and removed at runtime:
 
 ```python
-registry.register(source)
+registry.register("kbl", kbl_source)   # appended; the source ID must be new
+registry.replace("kbl", new_source)    # same position, so priority and order are kept
+registry.unregister("kbl")
+registry.source_ids()                  # source IDs in registration order
 ```
 
-The Registry uses `can_resolve()` to determine which source is able to resolve a given semantic identifier.
+`replace` and `unregister` raise `ValueError` for an unknown source ID.
+
+The sources are kept in an immutable tuple. A change builds a new tuple under a lock and swaps it in (copy-on-write). Resolution and suggestions work on the tuple that was current when they started, without locking, so a running request is not affected by a concurrent change.
+
+The Registry uses `can_resolve()` to determine which source is able to resolve a given semantic identifier. If several sources can, the first one in registration order is used.
 
 For suggestions, the Registry delegates the search query to all registered sources and returns their results in registration order of the sources. The order within each source is kept, so each source ranks its own suggestions.
 
-If a source fails (e.g. because its source data cannot be loaded), it is skipped and a warning is logged, so the suggestions of the other sources are still returned.
+If a source fails (e.g. because its source data cannot be loaded), it is skipped and a warning with its source ID is logged, so the suggestions of the other sources are still returned.
 
 This provides an extensible mechanism for adding additional semantic resources.
 
@@ -220,7 +227,7 @@ Semantic-Hub/
 │   │   └── semantic.py             # internal semantic model
 │   │
 │   ├── registry/
-│   │   └── registry.py             # registration of semantic sources
+│   │   └── registry.py             # registration of semantic sources at runtime (copy-on-write)
 │   │
 │   ├── resolver/
 │   │   └── resolver.py             # resolution of semantic identifiers
