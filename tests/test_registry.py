@@ -91,3 +91,63 @@ def test_get_source_returns_first_source_that_can_resolve():
 
     assert registry.get_source("x:Thing") is first
     assert registry.get_source("z:Thing") is None
+
+def test_replace_keeps_position():
+    registry = SemanticRegistry()
+    registry.register("a", FakeSource(["a:x"]))
+    registry.register("b", FakeSource(["b:old"]))
+    registry.register("c", FakeSource(["c:x"]))
+
+    registry.replace("b", FakeSource(["b:new"]))
+
+    assert registry.source_ids() == ["a", "b", "c"]
+    assert registry.suggest("query") == ["a:x", "b:new", "c:x"]
+
+
+def test_unregister_removes_source():
+    registry = SemanticRegistry()
+    registry.register("a", FakeSource([], prefix="a:"))
+    registry.register("b", FakeSource([], prefix="b:"))
+
+    registry.unregister("a")
+
+    assert registry.source_ids() == ["b"]
+    assert registry.get_source("a:Thing") is None
+
+
+@pytest.mark.parametrize(
+    "method, args",
+    [
+        ("replace", ("missing", FakeSource([]))),
+        ("unregister", ("missing",)),
+    ],
+)
+def test_unknown_source_id_raises_value_error(method, args):
+    registry = SemanticRegistry()
+    registry.register("a", FakeSource([]))
+
+    with pytest.raises(ValueError):
+        getattr(registry, method)(*args)
+    assert registry.source_ids() == ["a"]
+
+
+class UnregisteringSource(FakeSource):
+    """Unregisters another source while suggest is running."""
+
+    def __init__(self, registry: SemanticRegistry, other_id: str):
+        super().__init__(["first:x"])
+        self.registry = registry
+        self.other_id = other_id
+
+    def suggest(self, query: str) -> list[str]:
+        self.registry.unregister(self.other_id)
+        return super().suggest(query)
+
+
+def test_running_suggest_is_not_affected_by_unregister():
+    registry = SemanticRegistry()
+    registry.register("first", UnregisteringSource(registry, "second"))
+    registry.register("second", FakeSource(["second:x"]))
+
+    assert registry.suggest("query") == ["first:x", "second:x"]
+    assert registry.source_ids() == ["first"]

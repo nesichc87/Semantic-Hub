@@ -26,6 +26,26 @@ class SemanticRegistry:
                 raise ValueError(f"Source ID already registered: {source_id}")
             self._sources = (*self._sources, (source_id, source))
 
+    def replace(self, source_id: str, source: SemanticSource) -> None:
+        """Replace a source at its position. Raises ValueError for an unknown source ID."""
+        with self._lock:
+            index = self._index_of(source_id)
+            sources = list(self._sources)
+            sources[index] = (source_id, source)
+            self._sources = tuple(sources)
+
+    def unregister(self, source_id: str) -> None:
+        """Remove a source. Raises ValueError for an unknown source ID."""
+        with self._lock:
+            index = self._index_of(source_id)
+            self._sources = self._sources[:index] + self._sources[index + 1:]
+
+    def _index_of(self, source_id: str) -> int:
+        for index, (existing, _) in enumerate(self._sources):
+            if existing == source_id:
+                return index
+        raise ValueError(f"Unknown source ID: {source_id}")
+
     def source_ids(self) -> list[str]:
         """Source IDs in registration order."""
         return [source_id for source_id, _ in self._sources]
