@@ -137,9 +137,19 @@ LOOPBACK = ipaddress.ip_address("127.0.0.1")
 
 
 def local_fetcher(**options):
-    """Fetcher that resolves data.example to 127.0.0.1 and allows only that address."""
+    """Fetcher for the local test server: only 127.0.0.1 is allowed.
+
+    data.example and mirror.example resolve to 127.0.0.1,
+    internal.example resolves to 127.0.0.2, which is not allowed.
+    """
     return SafeFetcher(
-        resolver=fake_resolver({"data.example": ["127.0.0.1"]}),
+        resolver=fake_resolver(
+            {
+                "data.example": ["127.0.0.1"],
+                "mirror.example": ["127.0.0.1"],
+                "internal.example": ["127.0.0.2"],
+            }
+        ),
         is_allowed=lambda address: address == LOOPBACK,
         **options,
     )
@@ -176,3 +186,57 @@ def test_blocked_address_is_never_contacted(server):
 def test_file_url_is_rejected():
     with pytest.raises(BlockedAddressError):
         SafeFetcher()("file:///etc/passwd", "turtle")
+
+TURTLE = (200, {"Content-Type": "text/turtle"}, b"@prefix ex: <x> .")
+
+
+def test_follows_relative_redirect(server):
+    server.routes["/old.ttl"] = (302, {"Location": "/vocab.ttl"}, b"")
+    server.routes["/vocab.ttl"] = TURTLE
+
+    body = local_fetcher()(f"http://data.example:{server.port}/old.ttl", "turtle")
+
+    assert body == b"@prefix ex: <x> ."
+    assert [path for path, _ in server.requests] == ["/old.ttl", "/vocab.ttl"]
+
+
+def test_follows_absolute_redirect_to_other_allowed_host(server):
+    server.routes["/old.ttl"] = (
+        301,
+        {"Location": f"http://mirror.example:{server.port}/vocab.ttl"},
+        b"",
+    )
+    server.routes["/vocab.ttl"] = TURTLE
+
+    local_fetcher()(f"http://data.example:{server.port}/old.ttl", "turtle")
+
+    assert server.requests[1][1]["Host"] == f"mirror.example:{server.port}"
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["http://internal.example:{port}/secret", "file:///etc/passwd"],
+)
+def test_redirect_to_disallowed_target_is_blocked_before_contact(server, location):
+    server.routes["/old.ttl"] = (302, {"Location": location.format(port=server.port)}, b"")
+
+    with pytest.raises(BlockedAddressError):
+        local_fetcher()(f"http://data.example:{server.port}/old.ttl", "turtle")
+    assert [path for path, _ in server.requests] == ["/old.ttl"]
+
+
+def test_too_many_redirects_is_fetch_error(server):
+    server.routes["/loop"] = (302, {"Location": "/loop"}, b"")
+
+    with pytest.raises(FetchError) as info:
+        local_fetcher()(f"http://data.example:{server.port}/loop", "turtle")
+
+    assert not isinstance(info.value, BlockedAddressError)
+    assert len(server.requests) == 6  # first request plus 5 redirects
+
+
+def test_redirect_without_location_is_fetch_error(server):
+    server.routes["/old.ttl"] = (302, {}, b"")
+
+    with pytest.raises(FetchError):
+        local_fetcher()(f"http://data.example:{server.port}/old.ttl", "turtle")

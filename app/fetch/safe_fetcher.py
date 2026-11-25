@@ -11,7 +11,7 @@ import ipaddress
 import socket
 import ssl
 from collections.abc import Callable
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
@@ -94,6 +94,7 @@ ACCEPT = {
 }
 
 USER_AGENT = "Semantic-Hub/0.2"
+REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 
 
 class _PinnedHTTPConnection(http.client.HTTPConnection):
@@ -127,21 +128,34 @@ class SafeFetcher:
     """
 
     def __init__(
-        self,
-        resolver: Resolver = system_resolver,
-        is_allowed: IsAllowed = is_allowed_address,
-        timeout: float = 30,
+            self,
+            resolver: Resolver = system_resolver,
+            is_allowed: IsAllowed = is_allowed_address,
+            timeout: float = 30,
+            max_redirects: int = 5,
     ):
         self._resolver = resolver
         self._is_allowed = is_allowed
         self._timeout = timeout
+        self._max_redirects = max_redirects
         self._context = ssl.create_default_context()
 
     def __call__(self, location: str, fmt: str) -> bytes:
-        scheme, host, port = check_url(location)
+        url = location
+        for _ in range(self._max_redirects + 1):
+            redirect, body = self._get(url, fmt)
+            if redirect is None:
+                return body
+            # Every redirect target is checked like a new URL in the next round.
+            url = urljoin(url, redirect)
+        raise FetchError(f"More than {self._max_redirects} redirects: {location}")
+
+    def _get(self, url: str, fmt: str) -> tuple[str | None, bytes]:
+        """One request. Returns the redirect target (or None) and the body."""
+        scheme, host, port = check_url(url)
         addresses = resolve_allowed(host, port, self._resolver, self._is_allowed)
 
-        parts = urlsplit(location)
+        parts = urlsplit(url)
         target = parts.path or "/"
         if parts.query:
             target += "?" + parts.query
@@ -151,11 +165,16 @@ class SafeFetcher:
         try:
             connection.request("GET", target, headers=headers)
             response = connection.getresponse()
+            if response.status in REDIRECT_STATUSES:
+                redirect = response.getheader("Location")
+                if not redirect:
+                    raise FetchError(f"HTTP {response.status} without Location: {url}")
+                return redirect, b""
             if not 200 <= response.status < 300:
-                raise FetchError(f"HTTP {response.status} for {location}")
-            return response.read()
+                raise FetchError(f"HTTP {response.status} for {url}")
+            return None, response.read()
         except (OSError, http.client.HTTPException) as exc:
-            raise FetchError(f"Fetching failed: {location}") from exc
+            raise FetchError(f"Fetching failed: {url}") from exc
         finally:
             connection.close()
 
