@@ -126,7 +126,9 @@ def server():
 
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     state.port = httpd.server_address[1]
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=httpd.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    )
     thread.start()
     yield state
     httpd.shutdown()
