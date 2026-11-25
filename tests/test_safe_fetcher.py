@@ -242,3 +242,51 @@ def test_redirect_without_location_is_fetch_error(server):
 
     with pytest.raises(FetchError):
         local_fetcher()(f"http://data.example:{server.port}/old.ttl", "turtle")
+
+def fake_clock(*values: float):
+    """Returns the given times in order, then keeps returning the last one."""
+    remaining = list(values)
+
+    def clock() -> float:
+        return remaining.pop(0) if len(remaining) > 1 else remaining[0]
+
+    return clock
+
+
+def test_body_up_to_limit_is_accepted(server):
+    server.routes["/small.ttl"] = (200, {}, b"x" * 10)
+
+    body = local_fetcher(max_bytes=10)(f"http://data.example:{server.port}/small.ttl", "turtle")
+
+    assert body == b"x" * 10
+
+
+def test_body_over_limit_is_fetch_error(server):
+    server.routes["/big.ttl"] = (200, {}, b"x" * 11)
+
+    with pytest.raises(FetchError, match="larger than"):
+        local_fetcher(max_bytes=10)(f"http://data.example:{server.port}/big.ttl", "turtle")
+
+
+def test_total_time_limit_is_fetch_error(server):
+    server.routes["/vocab.ttl"] = TURTLE
+
+    with pytest.raises(FetchError, match="time limit"):
+        local_fetcher(clock=fake_clock(0.0, 121.0))(
+            f"http://data.example:{server.port}/vocab.ttl", "turtle"
+        )
+
+
+@pytest.mark.parametrize("content_type", ["text/html; charset=utf-8", "application/xhtml+xml"])
+def test_html_page_is_fetch_error(server, content_type):
+    server.routes["/page"] = (200, {"Content-Type": content_type}, b"<html></html>")
+
+    with pytest.raises(FetchError, match="HTML"):
+        local_fetcher()(f"http://data.example:{server.port}/page", "turtle")
+
+
+@pytest.mark.parametrize("content_type", ["text/plain", "application/octet-stream"])
+def test_other_content_types_are_accepted(server, content_type):
+    server.routes["/raw.ttl"] = (200, {"Content-Type": content_type}, b"@prefix ex: <x> .")
+
+    assert local_fetcher()(f"http://data.example:{server.port}/raw.ttl", "turtle")

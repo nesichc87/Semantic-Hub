@@ -10,6 +10,7 @@ import http.client
 import ipaddress
 import socket
 import ssl
+import time
 from collections.abc import Callable
 from urllib.parse import urljoin, urlsplit
 
@@ -95,6 +96,10 @@ ACCEPT = {
 
 USER_AGENT = "Semantic-Hub/0.2"
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+MAX_BYTES = 50 * 1024 * 1024
+TOTAL_TIMEOUT = 120
+CHUNK_SIZE = 64 * 1024
+HTML_TYPES = {"text/html", "application/xhtml+xml"}
 
 
 class _PinnedHTTPConnection(http.client.HTTPConnection):
@@ -133,25 +138,33 @@ class SafeFetcher:
             is_allowed: IsAllowed = is_allowed_address,
             timeout: float = 30,
             max_redirects: int = 5,
+            max_bytes: int = MAX_BYTES,
+            total_timeout: float = TOTAL_TIMEOUT,
+            clock: Callable[[], float] = time.monotonic,
     ):
         self._resolver = resolver
         self._is_allowed = is_allowed
         self._timeout = timeout
         self._max_redirects = max_redirects
+        self._max_bytes = max_bytes
+        self._total_timeout = total_timeout
+        self._clock = clock
         self._context = ssl.create_default_context()
 
     def __call__(self, location: str, fmt: str) -> bytes:
+        deadline = self._clock() + self._total_timeout
         url = location
         for _ in range(self._max_redirects + 1):
-            redirect, body = self._get(url, fmt)
+            redirect, body = self._get(url, fmt, deadline)
             if redirect is None:
                 return body
             # Every redirect target is checked like a new URL in the next round.
             url = urljoin(url, redirect)
         raise FetchError(f"More than {self._max_redirects} redirects: {location}")
 
-    def _get(self, url: str, fmt: str) -> tuple[str | None, bytes]:
+    def _get(self, url: str, fmt: str, deadline: float) -> tuple[str | None, bytes]:
         """One request. Returns the redirect target (or None) and the body."""
+        self._check_deadline(deadline, url)
         scheme, host, port = check_url(url)
         addresses = resolve_allowed(host, port, self._resolver, self._is_allowed)
 
@@ -172,11 +185,30 @@ class SafeFetcher:
                 return redirect, b""
             if not 200 <= response.status < 300:
                 raise FetchError(f"HTTP {response.status} for {url}")
-            return None, response.read()
+            content_type = (response.getheader("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if content_type in HTML_TYPES:
+                raise FetchError(f"HTML page instead of data: {url}")
+            return None, self._read_limited(response, url, deadline)
         except (OSError, http.client.HTTPException) as exc:
             raise FetchError(f"Fetching failed: {url}") from exc
         finally:
             connection.close()
+
+    def _read_limited(self, response, url: str, deadline: float) -> bytes:
+        """Read in chunks; stop as soon as the size or time limit is exceeded."""
+        chunks: list[bytes] = []
+        size = 0
+        while chunk := response.read(CHUNK_SIZE):
+            size += len(chunk)
+            if size > self._max_bytes:
+                raise FetchError(f"Response larger than {self._max_bytes} bytes: {url}")
+            chunks.append(chunk)
+            self._check_deadline(deadline, url)
+        return b"".join(chunks)
+
+    def _check_deadline(self, deadline: float, url: str) -> None:
+        if self._clock() > deadline:
+            raise FetchError(f"Total time limit of {self._total_timeout} s exceeded: {url}")
 
     def _connect(self, scheme: str, host: str, port: int, addresses: list[IPAddress]):
         """Connect to the first reachable checked address."""
