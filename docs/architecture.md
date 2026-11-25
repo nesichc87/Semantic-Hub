@@ -203,6 +203,22 @@ Data type mapping (`app/formatter/iec61360_types.py`):
 
 Unsupported types are not guessed. Properties with an unsupported type are kept in the output and returned with `data_type: null`.
 
+## Fetching and caching (in development)
+
+External content for the generic source types is meant to be loaded through two building blocks in `app/fetch/`. They are not yet used by the API; the built-in sources still load through their own clients.
+
+**`SafeFetcher`** (`safe_fetcher.py`) is a fetch function of the form `fetcher(location, format) -> bytes`:
+
+- Only `http` and `https` URLs without credentials are allowed; `file://` is rejected.
+- The host name is resolved, and every address must be globally reachable unicast (no loopback, private, link-local, shared, multicast or reserved addresses). The connection then goes to a checked address, so a second DNS lookup cannot lead to an internal address; the host name is kept for the `Host` header and, with HTTPS, for SNI and the certificate check.
+- Redirects are followed manually (at most 5), and every target is checked like a new URL.
+- Limits: 50 MB per response (checked while reading), 30 s per connection or read step, 120 s in total including redirects.
+- HTML pages (`text/html`, `application/xhtml+xml`) are rejected; other content types are accepted.
+- Errors raise `FetchError` (a `RuntimeError`, reported as an unavailable source); disallowed URLs or addresses raise its subclass `BlockedAddressError`.
+- Proxies are not supported.
+
+**`SourceCache`** (`cache.py`) keeps the latest raw data per source and location as `<root>/<source id>/<SHA-256 of the location>.data`, with a `.json` file holding location, format, fetch time (UTC), SHA-256 and size. `cache.fetcher(source_id, fetch, refresh=False)` returns a fetch function that uses the cached state if present and otherwise fetches and stores; with `refresh=True` it always fetches. A failed fetch leaves the cached state unchanged. Files are written atomically, and source IDs are restricted to lowercase letters, digits, `.`, `_` and `-`.
+
 ## Project structure
 
 ```
@@ -216,6 +232,11 @@ Semantic-Hub/
 │   ├── api/
 │   │   └── routes/
 │   │       └── semantic.py         # REST endpoints (resolve, suggest)
+│   │
+│   ├── fetch/
+│   │   ├── cache.py                # file cache for raw source data (latest state per source and location)
+│   │   └── safe_fetcher.py         # safe fetching of external content (address checks, limits)
+│   │
 │   │
 │   ├── formatter/
 │   │   ├── base.py                 # common formatter interface
