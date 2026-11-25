@@ -1,11 +1,14 @@
 import ipaddress
 import socket
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
 from app.fetch.safe_fetcher import (
     BlockedAddressError,
     FetchError,
+    SafeFetcher,
     check_url,
     is_allowed_address,
     resolve_allowed,
@@ -93,3 +96,83 @@ def test_resolve_failure_is_fetch_error_but_not_blocked():
         resolve_allowed("missing.example", 443, fake_resolver({}))
 
     assert not isinstance(info.value, BlockedAddressError)
+
+class LocalServer:
+    """Test HTTP server on 127.0.0.1 with configurable routes."""
+
+    def __init__(self):
+        self.routes: dict[str, tuple[int, dict[str, str], bytes]] = {}
+        self.requests: list[tuple[str, dict[str, str]]] = []
+        self.port = 0
+
+
+@pytest.fixture
+def server():
+    state = LocalServer()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            state.requests.append((self.path, dict(self.headers)))
+            status, headers, body = state.routes.get(self.path, (404, {}, b"not found"))
+            self.send_response(status)
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    state.port = httpd.server_address[1]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    yield state
+    httpd.shutdown()
+    httpd.server_close()
+
+
+LOOPBACK = ipaddress.ip_address("127.0.0.1")
+
+
+def local_fetcher(**options):
+    """Fetcher that resolves data.example to 127.0.0.1 and allows only that address."""
+    return SafeFetcher(
+        resolver=fake_resolver({"data.example": ["127.0.0.1"]}),
+        is_allowed=lambda address: address == LOOPBACK,
+        **options,
+    )
+
+
+def test_fetches_body_from_resolved_address_with_original_host(server):
+    server.routes["/vocab.ttl"] = (200, {"Content-Type": "text/turtle"}, b"@prefix ex: <x> .")
+
+    body = local_fetcher()(f"http://data.example:{server.port}/vocab.ttl", "turtle")
+
+    assert body == b"@prefix ex: <x> ."
+    path, headers = server.requests[0]
+    assert path == "/vocab.ttl"
+    assert headers["Host"] == f"data.example:{server.port}"
+    assert "text/turtle" in headers["Accept"]
+    assert "Semantic-Hub" in headers["User-Agent"]
+
+
+def test_http_error_status_is_fetch_error(server):
+    with pytest.raises(FetchError) as info:
+        local_fetcher()(f"http://data.example:{server.port}/missing.ttl", "turtle")
+
+    assert not isinstance(info.value, BlockedAddressError)
+
+
+def test_blocked_address_is_never_contacted(server):
+    fetcher = SafeFetcher(resolver=fake_resolver({"data.example": ["127.0.0.1"]}))
+
+    with pytest.raises(BlockedAddressError):
+        fetcher(f"http://data.example:{server.port}/vocab.ttl", "turtle")
+    assert server.requests == []
+
+
+def test_file_url_is_rejected():
+    with pytest.raises(BlockedAddressError):
+        SafeFetcher()("file:///etc/passwd", "turtle")

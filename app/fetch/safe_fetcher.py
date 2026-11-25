@@ -6,8 +6,10 @@ allowed. Pinned connections, redirects, size and time limits and the
 content type check are added in later steps.
 """
 
+import http.client
 import ipaddress
 import socket
+import ssl
 from collections.abc import Callable
 from urllib.parse import urlsplit
 
@@ -16,6 +18,7 @@ IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 Resolver = Callable[[str, int], list[str]]
 """Returns the IP addresses (as text) for a host name and port."""
+IsAllowed = Callable[[IPAddress], bool]
 
 DEFAULT_PORTS = {"http": 80, "https": 443}
 
@@ -58,7 +61,12 @@ def system_resolver(host: str, port: int) -> list[str]:
     return [info[4][0] for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)]
 
 
-def resolve_allowed(host: str, port: int, resolver: Resolver = system_resolver) -> list[IPAddress]:
+def resolve_allowed(
+    host: str,
+    port: int,
+    resolver: Resolver = system_resolver,
+    is_allowed: IsAllowed = is_allowed_address,
+) -> list[IPAddress]:
     """Resolve a host name; every address must be allowed."""
     try:
         answers = resolver(host, port)
@@ -70,8 +78,101 @@ def resolve_allowed(host: str, port: int, resolver: Resolver = system_resolver) 
     addresses: list[IPAddress] = []
     for answer in answers:
         address = ipaddress.ip_address(answer.split("%", 1)[0])  # drop an IPv6 scope ID
-        if not is_allowed_address(address):
+        if not is_allowed(address):
             raise BlockedAddressError(f"Address not allowed for host {host}: {address}")
         if address not in addresses:
             addresses.append(address)
     return addresses
+
+ACCEPT = {
+    "turtle": "text/turtle, */*;q=0.1",
+    "json-ld": "application/ld+json, application/json;q=0.9, */*;q=0.1",
+    "xml": "application/rdf+xml, */*;q=0.1",
+    "xsd": "application/xml, text/xml, */*;q=0.1",
+    "csv": "text/csv, */*;q=0.1",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*;q=0.1",
+}
+
+USER_AGENT = "Semantic-Hub/0.2"
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    """HTTP connection to a checked address; the host name is kept for the Host header."""
+
+    def __init__(self, host: str, port: int, address: str, timeout: float):
+        super().__init__(host, port, timeout=timeout)
+        self._address = address
+
+    def connect(self):
+        self.sock = socket.create_connection((self._address, self.port), self.timeout)
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection to a checked address; SNI and certificate check use the host name."""
+
+    def __init__(self, host: str, port: int, address: str, timeout: float, context: ssl.SSLContext):
+        super().__init__(host, port, timeout=timeout, context=context)
+        self._address = address
+
+    def connect(self):
+        sock = socket.create_connection((self._address, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+class SafeFetcher:
+    """Fetch function for the generic source types: ``fetcher(location, format) -> bytes``.
+
+    The connection goes to an address that was checked before, so a second
+    DNS lookup cannot lead to an internal address (DNS rebinding).
+    """
+
+    def __init__(
+        self,
+        resolver: Resolver = system_resolver,
+        is_allowed: IsAllowed = is_allowed_address,
+        timeout: float = 30,
+    ):
+        self._resolver = resolver
+        self._is_allowed = is_allowed
+        self._timeout = timeout
+        self._context = ssl.create_default_context()
+
+    def __call__(self, location: str, fmt: str) -> bytes:
+        scheme, host, port = check_url(location)
+        addresses = resolve_allowed(host, port, self._resolver, self._is_allowed)
+
+        parts = urlsplit(location)
+        target = parts.path or "/"
+        if parts.query:
+            target += "?" + parts.query
+        headers = {"Accept": ACCEPT.get(fmt, "*/*"), "User-Agent": USER_AGENT}
+
+        connection = self._connect(scheme, host, port, addresses)
+        try:
+            connection.request("GET", target, headers=headers)
+            response = connection.getresponse()
+            if not 200 <= response.status < 300:
+                raise FetchError(f"HTTP {response.status} for {location}")
+            return response.read()
+        except (OSError, http.client.HTTPException) as exc:
+            raise FetchError(f"Fetching failed: {location}") from exc
+        finally:
+            connection.close()
+
+    def _connect(self, scheme: str, host: str, port: int, addresses: list[IPAddress]):
+        """Connect to the first reachable checked address."""
+        last_error: OSError | None = None
+        for address in addresses:
+            if scheme == "https":
+                connection = _PinnedHTTPSConnection(
+                    host, port, str(address), self._timeout, self._context
+                )
+            else:
+                connection = _PinnedHTTPConnection(host, port, str(address), self._timeout)
+            try:
+                connection.connect()
+                return connection
+            except OSError as exc:
+                connection.close()
+                last_error = exc
+        raise FetchError(f"Connection failed: {host}") from last_error
