@@ -219,6 +219,16 @@ External content for the generic source types is meant to be loaded through two 
 
 **`SourceCache`** (`cache.py`) keeps the latest raw data per source and location as `<root>/<source id>/<SHA-256 of the location>.data`, with a `.json` file holding location, format, fetch time (UTC), SHA-256 and size. `cache.fetcher(source_id, fetch, refresh=False)` returns a fetch function that uses the cached state if present and otherwise fetches and stores; with `refresh=True` it always fetches. A failed fetch leaves the cached state unchanged. Files are written atomically, and source IDs are restricted to lowercase letters, digits, `.`, `_` and `-`.
 
+## Source catalog (in development)
+
+The catalog in `app/catalog/` holds the generic sources with their configuration and status, never their triples. It is built with SQLAlchemy; migrations use Alembic.
+
+- Table `sources`: source ID, type (`rdf`, `xsd`, `table`), configuration as given, prefixes, status, status reason, license, creation and update time.
+- Table `source_loads`: load attempts per source (start, end, outcome, message, loaded from cache).
+- Status values: `proposed`, `approved`, `loading`, `active`, `error`, `rejected`, `disabled`.
+- `SourceCatalog.add` validates an entry `{"type": ..., "config": {...}}` with the source factory without loading it and stores it as `proposed`. A source ID that already exists, or a prefix that equals, starts with or is the start of an existing or reserved prefix (e.g. `qudt:` and `qudt:unit:`), raises `CatalogConflictError`.
+- Seed list (`seed.json`): sources shipped as an offer. `activate_seed` copies one into the catalog as `approved` once its license is confirmed; `preselect_seed` activates the sources listed in `SEMANTIC_HUB_SEED_SOURCES` at the first start. Nothing is activated automatically otherwise.
+
 ## Project structure
 
 ```
@@ -232,6 +242,13 @@ Semantic-Hub/
 │   ├── api/
 │   │   └── routes/
 │   │       └── semantic.py         # REST endpoints (resolve, suggest)
+│   ├── catalog/
+│   │   ├── migrations/             # Alembic migrations, run from code
+│   │   ├── db.py                   # database setup and upgrade to the latest migration
+│   │   ├── models.py               # tables sources and source_loads
+│   │   ├── repository.py           # source catalog with prefix conflict check
+│   │   ├── seed.json               # shipped seed sources (empty for now)
+│   │   └── seed.py                 # seed list: load, activate, preselect
 │   │
 │   ├── fetch/
 │   │   ├── cache.py                # file cache for raw source data (latest state per source and location)
@@ -293,7 +310,7 @@ Semantic-Hub/
 │   │       ├── ui.css              # colour and font tokens, light and dark theme
 │   │       └── ui.js               # suggestions, resolution, property table, language switch
 │   │
-│   ├── config.py                   # source URL configuration via environment variables
+│   ├── config.py                   # source and database URL configuration via environment variables
 │   └── main.py                     # FastAPI application, demo page and local Swagger UI
 │
 ├── scripts/
