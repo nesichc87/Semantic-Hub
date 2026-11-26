@@ -52,6 +52,22 @@ The DPPO URL is a template: `{module}` is replaced by each module name. A local 
 
 A local copy must have the same format as the online source (XSD for KBL, Turtle for VEC, QUDT and DPPO). Local copies of source data are not part of this repository; the licenses of the respective sources apply (see [Semantic sources](sources.md)).
 
+## Source catalog database (in development)
+
+The source catalog (configuration, status and load results of the generic sources) is stored in a database. It is not yet used by the API.
+
+| Variable | Default |
+|---|---|
+| `SEMANTIC_HUB_DATABASE_URL` | `sqlite:///semantic-hub.db` (SQLite file in the working directory) |
+
+If the variable is not set or empty, the default is used. The database file is not part of the repository (`*.db` is ignored). PostgreSQL support follows with the database container.
+
+Migrations are part of the application (`app/catalog/migrations`) and are run from code, so no `alembic.ini` is needed.
+
+| Variable | Meaning |
+|---|---|
+| `SEMANTIC_HUB_SEED_SOURCES` | Comma-separated IDs of shipped seed sources to activate at the first start (only if the catalog is empty). Setting it confirms the licenses of these sources. The shipped seed list is currently empty. |
+
 ## Running the demo offline
 
 `scripts/start-demo.ps1` (Windows PowerShell) starts the application with local copies of all four sources and loads them before the first request, so that the first visitor does not have to wait for the source data to be parsed.
