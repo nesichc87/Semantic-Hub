@@ -5,3 +5,5 @@ rdflib==7.6.0
 pydantic==2.13.5
 defusedxml==0.7.1
 openpyxl==3.1.5
+sqlalchemy==2.1.9
+alembic==1.20.1
