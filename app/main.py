@@ -1,11 +1,14 @@
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import semantic
+from app.catalog.runtime import check_database, init_catalog
 
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -35,6 +38,20 @@ class NoCacheStaticFiles(StaticFiles):
         response.headers["Cache-Control"] = "no-cache"
         return response
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Set up the source catalog at start and release it at shutdown.
+
+    A database failure does not stop the application; /health reports it.
+    """
+    state = init_catalog(os.environ)
+    app.state.catalog = state
+    try:
+        yield
+    finally:
+        state.close()
+        app.state.catalog = None
+
 app = FastAPI(
     title="Semantic Hub",
     description="""
@@ -47,6 +64,7 @@ information while preserving source provenance.
 """,
     version="0.1.0",
     docs_url=None,
+    lifespan=lifespan,
 )
 
 
@@ -89,4 +107,11 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Report whether the application and its catalog database are available."""
+    state = getattr(app.state, "catalog", None)
+    if state is not None and check_database(state):
+        return {"status": "ok", "database": "ok"}
+    return JSONResponse(
+        status_code=503,
+        content={"status": "degraded", "database": "unavailable"},
+    )
