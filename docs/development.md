@@ -54,7 +54,7 @@ A local copy must have the same format as the online source (XSD for KBL, Turtle
 
 ## Source catalog database (in development)
 
-The source catalog (configuration, status and load results of the generic sources) is stored in a database. It is not yet used by the API.
+The source catalog (configuration, status and load results of the generic sources) is stored in a database. At start, the application brings the database to the latest migration and activates preselected seed sources; `/health` reports whether the database is reachable. If the database is not reachable, the application still starts. Without `SEMANTIC_HUB_DATABASE_URL`, a local start (e.g. `uvicorn app.main:app --reload`) creates `semantic-hub.db` in the working directory.
 
 | Variable | Default |
 |---|---|
@@ -88,17 +88,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-demo.ps1 -SourceDir <fo
 
 ## Deployment
 
-The Semantic Hub runs as one Docker container: the FastAPI application with the resolver, the registry, the four sources and the demo page. The container only packages the state of the checked-out tag; it contains no source data.
+The Semantic Hub runs as two Docker containers: `semantic-hub` with the FastAPI application (resolver, registry, the four built-in sources, demo page) and `db` with PostgreSQL for the source catalog. The application image only packages the state of the checked-out tag; it contains no source data.
 
 ```
-Docker Container
-┌──────────────────────────────┐
-│       Semantic Hub API       │
-│          FastAPI             │
-│       Resolver / Registry    │
-│        Semantic Sources      │
-│   (demo page: /ui/, API docs: /docs)
-└──────────────────────────────┘
+┌──────────────────────────────┐      ┌──────────────────────┐
+│ semantic-hub (port 8000)     │      │ db                   │
+│  FastAPI, Resolver/Registry  │ ───► │  PostgreSQL 18       │
+│  Semantic Sources            │      │  source catalog      │
+│  /ui/, /docs, /health        │      │  volume db-data      │
+└──────────────────────────────┘      └──────────────────────┘
 ```
 
 Requirements: Docker with Docker Compose v2, and network access to the source servers (prostep ECAD wiki, qudt.org, liusemweb.github.io) unless local copies are configured (see below).
@@ -106,10 +104,13 @@ Requirements: Docker with Docker Compose v2, and network access to the source se
 ### Start
 
 ```
-git clone --branch v0.1.1 https://github.com/nesichc87/Semantic-Hub.git
+git clone --branch <tag> https://github.com/nesichc87/Semantic-Hub.git
 cd Semantic-Hub
+cp .env.example .env      # PowerShell: Copy-Item .env.example .env
+# set POSTGRES_PASSWORD in .env
 docker compose up -d --build
 ```
+Without `POSTGRES_PASSWORD` in `.env`, `docker compose` stops with a message. The database port is not published; only the application reaches it. Releases up to `v0.1.1` run without a database; for those, follow the documentation in the respective tag.
 
 The API listens on port 8000 (change it with the environment variable `SEMANTIC_HUB_PORT`, e.g. `SEMANTIC_HUB_PORT=8080`).
 
@@ -122,7 +123,7 @@ curl "http://localhost:8000/api/resolve/vec:PartVersion"
 ```
 
 - `docker compose ps` shows the state `healthy` once the health check on `/health` succeeds.
-- `/health` returns `{"status":"ok"}`.
+- `/health` returns `{"status": "ok", "database": "ok"}`. If the catalog database cannot be reached, it returns 503 with `{"status": "degraded", "database": "unavailable"}`, and the container is reported as `unhealthy`; the demo page and the built-in sources keep working.
 - The demo page is at `http://localhost:8000/ui/`, Swagger UI at `http://localhost:8000/docs`.
 - The sources load their data on first use, so the first request per source takes longer. A source that cannot be loaded returns 503 and does not affect the others.
 
@@ -157,7 +158,7 @@ docker compose restart
 docker compose down
 ```
 
-The container restarts automatically after a reboot of the Docker host (`restart: unless-stopped`). It keeps no data; sources are loaded again after every restart.
+Both containers restart automatically after a reboot of the Docker host (`restart: unless-stopped`). The application keeps no data; sources are loaded again after every restart. The source catalog is kept in the volume `db-data`; `docker compose down -v` deletes it.
 
 ### Update
 
@@ -166,6 +167,8 @@ git fetch --tags
 git checkout <new tag>
 docker compose up -d --build
 ```
+
+When updating from `v0.1.1` (no database) to a release with database, create `.env` from `.env.example` first.
 
 ## Branches and releases
 

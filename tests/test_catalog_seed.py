@@ -9,10 +9,9 @@ from app.catalog.seed import DEFAULT_SEED_PATH, activate_seed, load_seed, presel
 
 
 @pytest.fixture
-def catalog(tmp_path):
-    url = f"sqlite:///{(tmp_path / 'catalog.db').as_posix()}"
-    upgrade_database(url)
-    engine = create_engine(url)
+def catalog(catalog_url):
+    upgrade_database(catalog_url)
+    engine = create_engine(catalog_url)
     yield SourceCatalog(engine)
     engine.dispose()
 
