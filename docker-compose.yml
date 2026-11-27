@@ -11,4 +11,29 @@ services:
       SEMANTIC_HUB_VEC_TTL_URL: ${SEMANTIC_HUB_VEC_TTL_URL:-}
       SEMANTIC_HUB_QUDT_UNIT_TTL_URL: ${SEMANTIC_HUB_QUDT_UNIT_TTL_URL:-}
       SEMANTIC_HUB_DPPO_TTL_URL: ${SEMANTIC_HUB_DPPO_TTL_URL:-}
+      # Source catalog in the db service; the password comes from .env.
+      SEMANTIC_HUB_DATABASE_URL: postgresql+pg8000://hub:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env, see .env.example}@db:5432/hub
+      SEMANTIC_HUB_SEED_SOURCES: ${SEMANTIC_HUB_SEED_SOURCES:-}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_DB: hub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env, see .env.example}
+    volumes:
+      # From PostgreSQL 18 on, the official image keeps its data below /var/lib/postgresql.
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub -d hub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:
