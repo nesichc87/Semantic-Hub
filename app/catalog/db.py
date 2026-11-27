@@ -24,3 +24,7 @@ def alembic_config(url: str) -> Config:
 def upgrade_database(url: str) -> None:
     """Bring the database at ``url`` to the latest migration."""
     command.upgrade(alembic_config(url), "head")
+
+def downgrade_database(url: str) -> None:
+    """Undo all migrations, e.g. to empty an external test database."""
+    command.downgrade(alembic_config(url), "base")
