@@ -32,8 +32,8 @@ def write_seed(tmp_path):
 
 
 @pytest.fixture
-def ok_state(tmp_path):
-    state = init_catalog({"SEMANTIC_HUB_DATABASE_URL": sqlite_url(tmp_path / "catalog.db")})
+def ok_state(catalog_url):
+    state = init_catalog({"SEMANTIC_HUB_DATABASE_URL": catalog_url})
     yield state
     state.close()
 
@@ -63,10 +63,10 @@ def test_builtin_prefixes_are_reserved(ok_state):
         ok_state.catalog.add(rdf_entry("other", "kbl:x:"))
 
 
-def test_init_preselects_seed_sources(tmp_path):
+def test_init_preselects_seed_sources(tmp_path, catalog_url):
     state = init_catalog(
         {
-            "SEMANTIC_HUB_DATABASE_URL": sqlite_url(tmp_path / "catalog.db"),
+            "SEMANTIC_HUB_DATABASE_URL": catalog_url,
             "SEMANTIC_HUB_SEED_SOURCES": "units",
         },
         seed_path=write_seed(tmp_path),
@@ -79,11 +79,11 @@ def test_init_preselects_seed_sources(tmp_path):
         state.close()
 
 
-def test_failed_preselection_keeps_catalog_usable(tmp_path, caplog):
+def test_failed_preselection_keeps_catalog_usable(tmp_path, catalog_url, caplog):
     with caplog.at_level(logging.WARNING):
         state = init_catalog(
             {
-                "SEMANTIC_HUB_DATABASE_URL": sqlite_url(tmp_path / "catalog.db"),
+                "SEMANTIC_HUB_DATABASE_URL": catalog_url,
                 "SEMANTIC_HUB_SEED_SOURCES": "missing",
             },
             seed_path=write_seed(tmp_path),

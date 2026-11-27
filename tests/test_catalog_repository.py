@@ -23,10 +23,9 @@ class StepClock:
 
 
 @pytest.fixture
-def engine(tmp_path):
-    url = f"sqlite:///{(tmp_path / 'catalog.db').as_posix()}"
-    upgrade_database(url)
-    engine = create_engine(url)
+def engine(catalog_url):
+    upgrade_database(catalog_url)
+    engine = create_engine(catalog_url)
     yield engine
     engine.dispose()
 
