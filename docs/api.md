@@ -14,7 +14,10 @@ Swagger UI: `/docs` (served from a local copy of `swagger-ui-dist` 5.17.14 in `a
 GET /health
 ```
 
-Returns the current application status.
+Returns the status of the application and of the source catalog database:
+
+- `200` with `{"status": "ok", "database": "ok"}` if the database is reachable,
+- `503` with `{"status": "degraded", "database": "unavailable"}` otherwise. The other endpoints keep working.
 
 ### Root
 
